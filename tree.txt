@@ -1,0 +1,72 @@
+├── base_networks.py
+├── data
+│   └── test
+│       ├── RainDrop
+│       │   ├── gt
+│       │   │   ├── 0_clean.png
+│       │   │   └── 9_clean.png
+│       │   └── input
+│       │       ├── 0_rain.png
+│       │       └── 9_rain.png
+│       ├── raindroptesta.txt
+│       ├── RainStreak
+│       │   ├── gt
+│       │   │   ├── im_0301_s100_a04.png
+│       │   │   └── im_0350_s95_a06.png
+│       │   └── input
+│       │       ├── im_0301_s100_a04.png
+│       │       └── im_0350_s95_a06.png
+│       ├── rain_streak.txt
+│       ├── Snow100K-L
+│       │   ├── gt
+│       │   │   ├── crossing_02012.jpg
+│       │   │   ├── crossing_03017.jpg
+│       │   │   └── winter_weather_06383.jpg
+│       │   └── input
+│       │       ├── crossing_02012.jpg
+│       │       └── winter_weather_06383.jpg
+│       ├── snowtest100k_L.txt
+│       └── test1.zip
+├── environment.yml
+├── imgs
+│   ├── data_txt_files
+│   │   ├── allweather.txt
+│   │   ├── raindroptesta.txt
+│   │   ├── snowtest100k_L.txt
+│   │   └── test1.txt
+│   ├── data_txt_files.zip
+│   └── Transweather.png
+├── LICENSE
+├── output
+│   └── rain_drop
+│       ├── 0_rain.png
+│   ├── utils.cpython-36.pyc
+│   └── val_data_functions.cpython-36.pyc
+├── README.md
+├── realistic
+│   ├── snow_intersection_00057.jpg
+│   ├── snow_intersection_00088.jpg
+│   ├── winter_weather_01158.jpg
+│   ├── winter_weather_01164.jpg
+│   ├── winter_weather_02459.jpg
+│   └── winter_weather_04009.jpg
+│   │       ├── winter_weather_06382.jpg
+│   │       └── winter_weather_06383.jpg
+│   └── test1
+│       └── TransWeather_weights
+│           ├── im_0301_s100_a04.png
+│           ├── im_0301_s100_a05.png
+│           └── im_0350_s95_a06.png
+├── test_raindropa.py
+├── test_raindrop.py
+├── test_snow100k.py
+├── test_test1.py
+├── train_data_functions.py
+├── train-individual.py
+├── train.py
+├── transweather_model.py
+├── TransWeather_weights
+│   └── best
+├── tree.txt
+├── utils.py
+└── val_data_functions.py

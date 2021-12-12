@@ -124,13 +124,12 @@ def validation_val(net, val_data_loader, device, exp_name, category, save_tag=Fa
         # --- Save image --- #
         if save_tag:
             # print()
-            if (not os.path.exists("output/rain_drop")):
-                os.makedirs("output/rain_drop")
-            gfile = "output/rain_drop/" + os.path.basename(imgid[0])
+            if (not os.path.exists("output")):
+                os.makedirs("output")
+            gfile = "output/" + os.path.basename(imgid[0])
             gimage = grid_image([input_im, pred_image, gt], nrow=3)
             gimage.save(gfile)
-
-            save_image(pred_image, imgid, exp_name,category)
+            # save_image(pred_image, imgid, exp_name,category)
 
     avr_psnr = sum(psnr_list) / len(psnr_list)
     avr_ssim = sum(ssim_list) / len(ssim_list)
