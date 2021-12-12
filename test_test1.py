@@ -39,7 +39,7 @@ print(device)
 
 # --- Validation data loader --- #
 
-val_filename = 'test1.txt' ## This text file should contain all the names of the images and must be placed in ./data/test/ directory
+val_filename = 'rain_streak.txt' ## This text file should contain all the names of the images and must be placed in ./data/test/ directory
 
 val_data_loader = DataLoader(ValData(val_data_dir,val_filename), batch_size=val_batch_size, shuffle=False, num_workers=8)
 

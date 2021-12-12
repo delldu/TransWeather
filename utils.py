@@ -10,6 +10,23 @@ import skimage
 import cv2
 from skimage.measure import compare_psnr, compare_ssim
 import pdb
+import os
+from PIL import Image
+
+def grid_image(tensor_list, nrow=3):
+    grid = utils.make_grid(torch.cat(tensor_list, dim=0), nrow=nrow)
+    ndarr = (
+        grid.mul(255)
+        .add_(0.5)
+        .clamp_(0, 255)
+        .permute(1, 2, 0)
+        .to("cpu", torch.uint8)
+        .numpy()
+    )
+    image = Image.fromarray(ndarr)
+    return image
+
+
 def calc_psnr(im1, im2):
 
     im1 = im1[0].view(im1.shape[2],im1.shape[3],3).detach().cpu().numpy()
@@ -92,6 +109,11 @@ def validation_val(net, val_data_loader, device, exp_name, category, save_tag=Fa
             input_im = input_im.to(device)
             gt = gt.to(device)
             pred_image = net(input_im)
+        # pdb.set_trace()
+        # (Pdb) pp input_im.size(), gt.size(), imgid
+        # (torch.Size([1, 3, 480, 720]),
+        #  torch.Size([1, 3, 480, 720]),
+        #  ('./RainDrop/input/15_rain.png',))
 
 # --- Calculate the average PSNR --- #
         psnr_list.extend(calc_psnr(pred_image, gt))
@@ -102,6 +124,12 @@ def validation_val(net, val_data_loader, device, exp_name, category, save_tag=Fa
         # --- Save image --- #
         if save_tag:
             # print()
+            if (not os.path.exists("output/rain_drop")):
+                os.makedirs("output/rain_drop")
+            gfile = "output/rain_drop/" + os.path.basename(imgid[0])
+            gimage = grid_image([input_im, pred_image, gt], nrow=3)
+            gimage.save(gfile)
+
             save_image(pred_image, imgid, exp_name,category)
 
     avr_psnr = sum(psnr_list) / len(psnr_list)

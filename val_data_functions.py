@@ -2,6 +2,7 @@ import torch.utils.data as data
 from PIL import Image
 from torchvision.transforms import Compose, ToTensor, Normalize
 import numpy as np
+import pdb
 
 # --- Validation/test dataset --- #
 class ValData(data.Dataset):
@@ -11,11 +12,13 @@ class ValData(data.Dataset):
         with open(val_list) as f:
             contents = f.readlines()
             input_names = [i.strip() for i in contents]
-            gt_names = [i.strip().replace('input','gt') for i in input_names]
+            gt_names = [i.strip().replace('input','gt').replace('_rain', '_clean') for i in input_names]
 
         self.input_names = input_names
         self.gt_names = gt_names
         self.val_data_dir = val_data_dir
+
+
 
     def get_images(self, index):
         input_name = self.input_names[index]
