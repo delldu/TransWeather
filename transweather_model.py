@@ -6,10 +6,9 @@ from functools import partial
 from base_networks import *
 
 import timm
-from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+from timm.models.layers import DropPath, trunc_normal_
 import types
 import math
-from abc import ABCMeta, abstractmethod
 from mmcv.cnn import ConvModule
 import pdb
 
@@ -19,6 +18,23 @@ class EncoderTransformer(nn.Module):
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
                  depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1]):
         super().__init__()
+        # self = Tenc()
+        # img_size = 224
+        # patch_size = 4
+        # in_chans = 3
+        # num_classes = 1000
+        # embed_dims = [64, 128, 320, 512]
+        # num_heads = [1, 2, 4, 4]
+        # mlp_ratios = [2, 2, 2, 2]
+        # qkv_bias = True
+        # qk_scale = None
+        # drop_rate = 0.0
+        # attn_drop_rate = 0.0
+        # drop_path_rate = 0.1
+        # norm_layer = functools.partial(<class 'torch.nn.modules.normalization.LayerNorm'>, eps=1e-06)
+        # depths = [2, 2, 2, 2]
+        # sr_ratios = [4, 2, 2, 1]
+
         self.num_classes = num_classes
         self.depths = depths
 
@@ -31,8 +47,25 @@ class EncoderTransformer(nn.Module):
                                               embed_dim=embed_dims[2])
         self.patch_embed4 = OverlapPatchEmbed(img_size=img_size // 16, patch_size=3, stride=2, in_chans=embed_dims[2],
                                               embed_dim=embed_dims[3])
-        # for Intra-patch transformer blocks
 
+        # (patch_embed1): OverlapPatchEmbed(
+        # (proj): Conv2d(3, 64, kernel_size=(7, 7), stride=(4, 4), padding=(3, 3))
+        # (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+        # )
+        # (patch_embed2): OverlapPatchEmbed(
+        # (proj): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        # (norm): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        # )
+        # (patch_embed3): OverlapPatchEmbed(
+        # (proj): Conv2d(128, 320, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        # (norm): LayerNorm((320,), eps=1e-05, elementwise_affine=True)
+        # )
+        # (patch_embed4): OverlapPatchEmbed(
+        # (proj): Conv2d(320, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        # (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        # )
+
+        # for Intra-patch transformer blocks
         self.mini_patch_embed1 = OverlapPatchEmbed(img_size=img_size // 4, patch_size=3, stride=2, in_chans=embed_dims[0],
                           embed_dim=embed_dims[1])
         self.mini_patch_embed2 = OverlapPatchEmbed(img_size=img_size // 8, patch_size=3, stride=2, in_chans=embed_dims[1],
@@ -41,6 +74,22 @@ class EncoderTransformer(nn.Module):
                                               embed_dim=embed_dims[3])
         self.mini_patch_embed4 = OverlapPatchEmbed(img_size=img_size // 32, patch_size=3, stride=2, in_chans=embed_dims[0],
                                               embed_dim=embed_dims[3])
+        # (mini_patch_embed1): OverlapPatchEmbed(
+        # (proj): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        # (norm): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        # )
+        # (mini_patch_embed2): OverlapPatchEmbed(
+        # (proj): Conv2d(128, 320, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        # (norm): LayerNorm((320,), eps=1e-05, elementwise_affine=True)
+        # )
+        # (mini_patch_embed3): OverlapPatchEmbed(
+        # (proj): Conv2d(320, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        # (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        # )
+        # (mini_patch_embed4): OverlapPatchEmbed(
+        # (proj): Conv2d(64, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        # (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        # )
 
         # main  encoder
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
@@ -51,6 +100,57 @@ class EncoderTransformer(nn.Module):
             sr_ratio=sr_ratios[0])
             for i in range(depths[0])])
         self.norm1 = norm_layer(embed_dims[0])
+        # (block1): ModuleList(
+        # (0): Block(
+        #   (norm1): LayerNorm((64,), eps=1e-06, elementwise_affine=True)
+        #   (attn): Attention(
+        #     (q): Linear(in_features=64, out_features=64, bias=True)
+        #     (kv): Linear(in_features=64, out_features=128, bias=True)
+        #     (attn_drop): Dropout(p=0.0, inplace=False)
+        #     (proj): Linear(in_features=64, out_features=64, bias=True)
+        #     (proj_drop): Dropout(p=0.0, inplace=False)
+        #     (sr): Conv2d(64, 64, kernel_size=(4, 4), stride=(4, 4))
+        #     (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+        #   )
+        #   (drop_path): Identity()
+        #   (norm2): LayerNorm((64,), eps=1e-06, elementwise_affine=True)
+        #   (mlp): Mlp(
+        #     (fc1): Linear(in_features=64, out_features=128, bias=True)
+        #     (dwconv): DWConv(
+        #       (dwconv): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=128)
+        #     )
+        #     (act): GELU()
+        #     (fc2): Linear(in_features=128, out_features=64, bias=True)
+        #     (drop): Dropout(p=0.0, inplace=False)
+        #   )
+        # )
+        # (1): Block(
+        #   (norm1): LayerNorm((64,), eps=1e-06, elementwise_affine=True)
+        #   (attn): Attention(
+        #     (q): Linear(in_features=64, out_features=64, bias=True)
+        #     (kv): Linear(in_features=64, out_features=128, bias=True)
+        #     (attn_drop): Dropout(p=0.0, inplace=False)
+        #     (proj): Linear(in_features=64, out_features=64, bias=True)
+        #     (proj_drop): Dropout(p=0.0, inplace=False)
+        #     (sr): Conv2d(64, 64, kernel_size=(4, 4), stride=(4, 4))
+        #     (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+        #   )
+        #   (drop_path): DropPath()
+        #   (norm2): LayerNorm((64,), eps=1e-06, elementwise_affine=True)
+        #   (mlp): Mlp(
+        #     (fc1): Linear(in_features=64, out_features=128, bias=True)
+        #     (dwconv): DWConv(
+        #       (dwconv): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=128)
+        #     )
+        #     (act): GELU()
+        #     (fc2): Linear(in_features=128, out_features=64, bias=True)
+        #     (drop): Dropout(p=0.0, inplace=False)
+        #   )
+        # )
+        # )
+        # (norm1): LayerNorm((64,), eps=1e-06, elementwise_affine=True)
+
+
         # intra-patch encoder
         self.patch_block1 = nn.ModuleList([Block(
             dim=embed_dims[1], num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -58,6 +158,33 @@ class EncoderTransformer(nn.Module):
             sr_ratio=sr_ratios[0])
             for i in range(1)])
         self.pnorm1 = norm_layer(embed_dims[1])
+        # (patch_block1): ModuleList(
+        # (0): Block(
+        #   (norm1): LayerNorm((128,), eps=1e-06, elementwise_affine=True)
+        #   (attn): Attention(
+        #     (q): Linear(in_features=128, out_features=128, bias=True)
+        #     (kv): Linear(in_features=128, out_features=256, bias=True)
+        #     (attn_drop): Dropout(p=0.0, inplace=False)
+        #     (proj): Linear(in_features=128, out_features=128, bias=True)
+        #     (proj_drop): Dropout(p=0.0, inplace=False)
+        #     (sr): Conv2d(128, 128, kernel_size=(4, 4), stride=(4, 4))
+        #     (norm): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        #   )
+        #   (drop_path): Identity()
+        #   (norm2): LayerNorm((128,), eps=1e-06, elementwise_affine=True)
+        #   (mlp): Mlp(
+        #     (fc1): Linear(in_features=128, out_features=256, bias=True)
+        #     (dwconv): DWConv(
+        #       (dwconv): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=256)
+        #     )
+        #     (act): GELU()
+        #     (fc2): Linear(in_features=256, out_features=128, bias=True)
+        #     (drop): Dropout(p=0.0, inplace=False)
+        #   )
+        # )
+        # )
+        # (pnorm1): LayerNorm((128,), eps=1e-06, elementwise_affine=True)
+
         # main  encoder
         cur += depths[0]
         self.block2 = nn.ModuleList([Block(
@@ -66,6 +193,34 @@ class EncoderTransformer(nn.Module):
             sr_ratio=sr_ratios[1])
             for i in range(depths[1])])
         self.norm2 = norm_layer(embed_dims[1])
+        # (patch_block2): ModuleList(
+        # (0): Block(
+        #   (norm1): LayerNorm((320,), eps=1e-06, elementwise_affine=True)
+        #   (attn): Attention(
+        #     (q): Linear(in_features=320, out_features=320, bias=True)
+        #     (kv): Linear(in_features=320, out_features=640, bias=True)
+        #     (attn_drop): Dropout(p=0.0, inplace=False)
+        #     (proj): Linear(in_features=320, out_features=320, bias=True)
+        #     (proj_drop): Dropout(p=0.0, inplace=False)
+        #     (sr): Conv2d(320, 320, kernel_size=(2, 2), stride=(2, 2))
+        #     (norm): LayerNorm((320,), eps=1e-05, elementwise_affine=True)
+        #   )
+        #   (drop_path): DropPath()
+        #   (norm2): LayerNorm((320,), eps=1e-06, elementwise_affine=True)
+        #   (mlp): Mlp(
+        #     (fc1): Linear(in_features=320, out_features=640, bias=True)
+        #     (dwconv): DWConv(
+        #       (dwconv): Conv2d(640, 640, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=640)
+        #     )
+        #     (act): GELU()
+        #     (fc2): Linear(in_features=640, out_features=320, bias=True)
+        #     (drop): Dropout(p=0.0, inplace=False)
+        #   )
+        # )
+        # )
+        # (pnorm2): LayerNorm((320,), eps=1e-06, elementwise_affine=True)
+
+
         # intra-patch encoder
         self.patch_block2 = nn.ModuleList([Block(
             dim=embed_dims[2], num_heads=num_heads[1], mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -73,6 +228,33 @@ class EncoderTransformer(nn.Module):
             sr_ratio=sr_ratios[1])
             for i in range(1)])
         self.pnorm2 = norm_layer(embed_dims[2])
+        # (patch_block2): ModuleList(
+        # (0): Block(
+        #   (norm1): LayerNorm((320,), eps=1e-06, elementwise_affine=True)
+        #   (attn): Attention(
+        #     (q): Linear(in_features=320, out_features=320, bias=True)
+        #     (kv): Linear(in_features=320, out_features=640, bias=True)
+        #     (attn_drop): Dropout(p=0.0, inplace=False)
+        #     (proj): Linear(in_features=320, out_features=320, bias=True)
+        #     (proj_drop): Dropout(p=0.0, inplace=False)
+        #     (sr): Conv2d(320, 320, kernel_size=(2, 2), stride=(2, 2))
+        #     (norm): LayerNorm((320,), eps=1e-05, elementwise_affine=True)
+        #   )
+        #   (drop_path): DropPath()
+        #   (norm2): LayerNorm((320,), eps=1e-06, elementwise_affine=True)
+        #   (mlp): Mlp(
+        #     (fc1): Linear(in_features=320, out_features=640, bias=True)
+        #     (dwconv): DWConv(
+        #       (dwconv): Conv2d(640, 640, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=640)
+        #     )
+        #     (act): GELU()
+        #     (fc2): Linear(in_features=640, out_features=320, bias=True)
+        #     (drop): Dropout(p=0.0, inplace=False)
+        #   )
+        # )
+        # )
+        # (pnorm2): LayerNorm((320,), eps=1e-06, elementwise_affine=True)
+
         # main  encoder
         cur += depths[1]
         self.block3 = nn.ModuleList([Block(
@@ -81,6 +263,57 @@ class EncoderTransformer(nn.Module):
             sr_ratio=sr_ratios[2])
             for i in range(depths[2])])
         self.norm3 = norm_layer(embed_dims[2])
+        # (block3): ModuleList(
+        # (0): Block(
+        #   (norm1): LayerNorm((320,), eps=1e-06, elementwise_affine=True)
+        #   (attn): Attention(
+        #     (q): Linear(in_features=320, out_features=320, bias=True)
+        #     (kv): Linear(in_features=320, out_features=640, bias=True)
+        #     (attn_drop): Dropout(p=0.0, inplace=False)
+        #     (proj): Linear(in_features=320, out_features=320, bias=True)
+        #     (proj_drop): Dropout(p=0.0, inplace=False)
+        #     (sr): Conv2d(320, 320, kernel_size=(2, 2), stride=(2, 2))
+        #     (norm): LayerNorm((320,), eps=1e-05, elementwise_affine=True)
+        #   )
+        #   (drop_path): DropPath()
+        #   (norm2): LayerNorm((320,), eps=1e-06, elementwise_affine=True)
+        #   (mlp): Mlp(
+        #     (fc1): Linear(in_features=320, out_features=640, bias=True)
+        #     (dwconv): DWConv(
+        #       (dwconv): Conv2d(640, 640, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=640)
+        #     )
+        #     (act): GELU()
+        #     (fc2): Linear(in_features=640, out_features=320, bias=True)
+        #     (drop): Dropout(p=0.0, inplace=False)
+        #   )
+        # )
+        # (1): Block(
+        #   (norm1): LayerNorm((320,), eps=1e-06, elementwise_affine=True)
+        #   (attn): Attention(
+        #     (q): Linear(in_features=320, out_features=320, bias=True)
+        #     (kv): Linear(in_features=320, out_features=640, bias=True)
+        #     (attn_drop): Dropout(p=0.0, inplace=False)
+        #     (proj): Linear(in_features=320, out_features=320, bias=True)
+        #     (proj_drop): Dropout(p=0.0, inplace=False)
+        #     (sr): Conv2d(320, 320, kernel_size=(2, 2), stride=(2, 2))
+        #     (norm): LayerNorm((320,), eps=1e-05, elementwise_affine=True)
+        #   )
+        #   (drop_path): DropPath()
+        #   (norm2): LayerNorm((320,), eps=1e-06, elementwise_affine=True)
+        #   (mlp): Mlp(
+        #     (fc1): Linear(in_features=320, out_features=640, bias=True)
+        #     (dwconv): DWConv(
+        #       (dwconv): Conv2d(640, 640, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=640)
+        #     )
+        #     (act): GELU()
+        #     (fc2): Linear(in_features=640, out_features=320, bias=True)
+        #     (drop): Dropout(p=0.0, inplace=False)
+        #   )
+        # )
+        # )
+        # (norm3): LayerNorm((320,), eps=1e-06, elementwise_affine=True)
+
+
         # intra-patch encoder
         self.patch_block3 = nn.ModuleList([Block(
             dim=embed_dims[3], num_heads=num_heads[1], mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -88,6 +321,34 @@ class EncoderTransformer(nn.Module):
             sr_ratio=sr_ratios[2])
             for i in range(1)])
         self.pnorm3 = norm_layer(embed_dims[3])
+        # (patch_block3): ModuleList(
+        # (0): Block(
+        #   (norm1): LayerNorm((512,), eps=1e-06, elementwise_affine=True)
+        #   (attn): Attention(
+        #     (q): Linear(in_features=512, out_features=512, bias=True)
+        #     (kv): Linear(in_features=512, out_features=1024, bias=True)
+        #     (attn_drop): Dropout(p=0.0, inplace=False)
+        #     (proj): Linear(in_features=512, out_features=512, bias=True)
+        #     (proj_drop): Dropout(p=0.0, inplace=False)
+        #     (sr): Conv2d(512, 512, kernel_size=(2, 2), stride=(2, 2))
+        #     (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        #   )
+        #   (drop_path): DropPath()
+        #   (norm2): LayerNorm((512,), eps=1e-06, elementwise_affine=True)
+        #   (mlp): Mlp(
+        #     (fc1): Linear(in_features=512, out_features=1024, bias=True)
+        #     (dwconv): DWConv(
+        #       (dwconv): Conv2d(1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024)
+        #     )
+        #     (act): GELU()
+        #     (fc2): Linear(in_features=1024, out_features=512, bias=True)
+        #     (drop): Dropout(p=0.0, inplace=False)
+        #   )
+        # )
+        # )
+        # (pnorm3): LayerNorm((512,), eps=1e-06, elementwise_affine=True)
+
+
         # main  encoder
         cur += depths[2]
         self.block4 = nn.ModuleList([Block(
@@ -96,6 +357,51 @@ class EncoderTransformer(nn.Module):
             sr_ratio=sr_ratios[3])
             for i in range(depths[3])])
         self.norm4 = norm_layer(embed_dims[3])
+        # (block4): ModuleList(
+        # (0): Block(
+        #   (norm1): LayerNorm((512,), eps=1e-06, elementwise_affine=True)
+        #   (attn): Attention(
+        #     (q): Linear(in_features=512, out_features=512, bias=True)
+        #     (kv): Linear(in_features=512, out_features=1024, bias=True)
+        #     (attn_drop): Dropout(p=0.0, inplace=False)
+        #     (proj): Linear(in_features=512, out_features=512, bias=True)
+        #     (proj_drop): Dropout(p=0.0, inplace=False)
+        #   )
+        #   (drop_path): DropPath()
+        #   (norm2): LayerNorm((512,), eps=1e-06, elementwise_affine=True)
+        #   (mlp): Mlp(
+        #     (fc1): Linear(in_features=512, out_features=1024, bias=True)
+        #     (dwconv): DWConv(
+        #       (dwconv): Conv2d(1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024)
+        #     )
+        #     (act): GELU()
+        #     (fc2): Linear(in_features=1024, out_features=512, bias=True)
+        #     (drop): Dropout(p=0.0, inplace=False)
+        #   )
+        # )
+        # (1): Block(
+        #   (norm1): LayerNorm((512,), eps=1e-06, elementwise_affine=True)
+        #   (attn): Attention(
+        #     (q): Linear(in_features=512, out_features=512, bias=True)
+        #     (kv): Linear(in_features=512, out_features=1024, bias=True)
+        #     (attn_drop): Dropout(p=0.0, inplace=False)
+        #     (proj): Linear(in_features=512, out_features=512, bias=True)
+        #     (proj_drop): Dropout(p=0.0, inplace=False)
+        #   )
+        #   (drop_path): DropPath()
+        #   (norm2): LayerNorm((512,), eps=1e-06, elementwise_affine=True)
+        #   (mlp): Mlp(
+        #     (fc1): Linear(in_features=512, out_features=1024, bias=True)
+        #     (dwconv): DWConv(
+        #       (dwconv): Conv2d(1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024)
+        #     )
+        #     (act): GELU()
+        #     (fc2): Linear(in_features=1024, out_features=512, bias=True)
+        #     (drop): Dropout(p=0.0, inplace=False)
+        #   )
+        # )
+        # )
+        # (norm4): LayerNorm((512,), eps=1e-06, elementwise_affine=True)
 
         self.apply(self._init_weights)
 
@@ -114,30 +420,33 @@ class EncoderTransformer(nn.Module):
             if m.bias is not None:
                 m.bias.data.zero_()
 
-    def init_weights(self, pretrained=None):
-        if isinstance(pretrained, str):
-            logger = get_root_logger()
-            load_checkpoint(self, pretrained, map_location='cpu', strict=False, logger=logger)
+    # xxxx8888 remove ?
+    # def init_weights(self, pretrained=None):
+    #     if isinstance(pretrained, str):
+    #         logger = get_root_logger()
+    #         load_checkpoint(self, pretrained, map_location='cpu', strict=False, logger=logger)
 
-    def reset_drop_path(self, drop_path_rate):
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
-        cur = 0
-        for i in range(self.depths[0]):
-            self.block1[i].drop_path.drop_prob = dpr[cur + i]
+    # xxxx8888 remove ?
+    # def reset_drop_path(self, drop_path_rate):
+    #     dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
+    #     cur = 0
+    #     for i in range(self.depths[0]):
+    #         self.block1[i].drop_path.drop_prob = dpr[cur + i]
 
-        cur += self.depths[0]
-        for i in range(self.depths[1]):
-            self.block2[i].drop_path.drop_prob = dpr[cur + i]
+    #     cur += self.depths[0]
+    #     for i in range(self.depths[1]):
+    #         self.block2[i].drop_path.drop_prob = dpr[cur + i]
 
-        cur += self.depths[1]
-        for i in range(self.depths[2]):
-            self.block3[i].drop_path.drop_prob = dpr[cur + i]
+    #     cur += self.depths[1]
+    #     for i in range(self.depths[2]):
+    #         self.block3[i].drop_path.drop_prob = dpr[cur + i]
 
-        cur += self.depths[2]
-        for i in range(self.depths[3]):
-            self.block4[i].drop_path.drop_prob = dpr[cur + i]
+    #     cur += self.depths[2]
+    #     for i in range(self.depths[3]):
+    #         self.block4[i].drop_path.drop_prob = dpr[cur + i]
 
-    def forward_features(self, x):
+    def forward(self, x):
+        # pp x.size() -- torch.Size([1, 3, 368, 640])
         B = x.shape[0]
         outs = []
         embed_dims=[64, 128, 320, 512]
@@ -159,7 +468,7 @@ class EncoderTransformer(nn.Module):
 
         # stage 2
         x1, H1, W1 = self.patch_embed2(x1)
-        x1 = x1.permute(0,2,1).reshape(B,embed_dims[1],H1,W1)+x2
+        x1 = x1.permute(0,2,1).reshape(B,embed_dims[1],H1,W1) + x2
         x2, H2, W2 = self.mini_patch_embed2(x1)
 
         x1 = x1.view(x1.shape[0],x1.shape[1],-1).permute(0,2,1)
@@ -196,7 +505,7 @@ class EncoderTransformer(nn.Module):
 
         # stage 4
         x1, H1, W1 = self.patch_embed4(x1)
-        x1 = x1.permute(0,2,1).reshape(B,embed_dims[3],H1,W1)+x2
+        x1 = x1.permute(0,2,1).reshape(B,embed_dims[3],H1,W1) + x2
 
         x1 = x1.view(x1.shape[0],x1.shape[1],-1).permute(0,2,1)
 
@@ -206,12 +515,13 @@ class EncoderTransformer(nn.Module):
         x1 = x1.reshape(B, H1, W1, -1).permute(0, 3, 1, 2).contiguous()
         outs.append(x1)
 
+        # len(outs), outs[0].size(), outs[1].size(), outs[2].size(), outs[3].size()
+        # (4, torch.Size([1, 64, 92, 160]), 
+        #     torch.Size([1, 128, 46, 80]), 
+        #     torch.Size([1, 320, 23, 40]), 
+        #     torch.Size([1, 512, 12, 20]))
+
         return outs
-
-    def forward(self, x):
-        x = self.forward_features(x)
-
-        return x
 
 
 class OverlapPatchEmbed(nn.Module):
@@ -220,8 +530,8 @@ class OverlapPatchEmbed(nn.Module):
 
     def __init__(self, img_size=224, patch_size=7, stride=4, in_chans=3, embed_dim=768):
         super().__init__()
-        img_size = to_2tuple(img_size)
-        patch_size = to_2tuple(patch_size)
+        img_size = (img_size, img_size)
+        patch_size = (patch_size, patch_size)
 
         self.img_size = img_size
         self.patch_size = patch_size
@@ -230,6 +540,16 @@ class OverlapPatchEmbed(nn.Module):
         self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=stride,
                               padding=(patch_size[0] // 2, patch_size[1] // 2))
         self.norm = nn.LayerNorm(embed_dim)
+
+        # self = OverlapPatchEmbed(
+        #   (proj): Conv2d(3, 64, kernel_size=(7, 7), stride=(4, 4), padding=(3, 3))
+        #   (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True), xxxx8888
+        # )
+        # img_size = (224, 224)
+        # patch_size = (7, 7)
+        # stride = 4
+        # in_chans = 3
+        # embed_dim = 64
 
         self.apply(self._init_weights)
 
@@ -249,11 +569,15 @@ class OverlapPatchEmbed(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x):
-        # pdb.set_trace()
+        # x.size() -- torch.Size([1, 3, 368, 640])
         x = self.proj(x)
+        # x.size() -- torch.Size([1, 64, 92, 160])
         _, _, H, W = x.shape
+        # 92*160 -- 14720
         x = x.flatten(2).transpose(1, 2)
         x = self.norm(x)
+
+        # x.size() -- torch.Size([1, 14720, 64])
 
         return x, H, W
 
@@ -276,6 +600,7 @@ def resize(input,
                         'the output would more aligned if '
                         f'input size {(input_h, input_w)} is `x+1` and '
                         f'out size {(output_h, output_w)} is `nx+1`')
+    pdb.set_trace()
     return F.interpolate(input, size, scale_factor, mode, align_corners)
 
 ############################################################
@@ -292,6 +617,21 @@ class Mlp(nn.Module):
         self.drop = nn.Dropout(drop)
 
         self.apply(self._init_weights)
+        # self = Mlp(
+        #   (fc1): Linear(in_features=64, out_features=128, bias=True)
+        #   (dwconv): DWConv(
+        #     (dwconv): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=128)
+        #   )
+        #   (act): GELU()
+        #   (fc2): Linear(in_features=128, out_features=64, bias=True)
+        #   (drop): Dropout(p=0.0, inplace=False)
+        # )
+        # in_features = 64
+        # hidden_features = 128
+        # out_features = 64
+        # act_layer = <class 'torch.nn.modules.activation.GELU'>
+        # drop = 0.0
+
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -340,6 +680,22 @@ class Attention(nn.Module):
             self.norm = nn.LayerNorm(dim)
 
         self.apply(self._init_weights)
+        # self = Attention(
+        #   (q): Linear(in_features=64, out_features=64, bias=True)
+        #   (kv): Linear(in_features=64, out_features=128, bias=True)
+        #   (attn_drop): Dropout(p=0.0, inplace=False)
+        #   (proj): Linear(in_features=64, out_features=64, bias=True)
+        #   (proj_drop): Dropout(p=0.0, inplace=False)
+        #   (sr): Conv2d(64, 64, kernel_size=(4, 4), stride=(4, 4))
+        #   (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+        # )
+        # dim = 64
+        # num_heads = 1
+        # qkv_bias = True
+        # qk_scale = None
+        # attn_drop = 0.0
+        # proj_drop = 0.0
+        # sr_ratio = 4
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -399,11 +755,14 @@ class Attention_dec(nn.Module):
 
         self.task_query = nn.Parameter(torch.randn(1,48,dim))
         self.sr_ratio = sr_ratio
+
+        # sr_ratio == 1
         if sr_ratio > 1:
             self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
             self.norm = nn.LayerNorm(dim)
 
         self.apply(self._init_weights)
+
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -421,7 +780,7 @@ class Attention_dec(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, H, W):
-        
+        # xxxx8888 onnx ?
         B, N, C = x.shape
         task_q = self.task_query
         
@@ -462,6 +821,8 @@ class Block_dec(nn.Module):
             num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
             attn_drop=attn_drop, proj_drop=drop, sr_ratio=sr_ratio)
 
+        # drop_path: ------- 0.0
+        # drop_path: ------- 0.014285714365541935
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
@@ -485,7 +846,6 @@ class Block_dec(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, H, W):
-
         x = x + self.drop_path(self.attn(self.norm1(x), H, W))
         x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
 
@@ -568,9 +928,21 @@ class DecoderTransformer(nn.Module):
             for i in range(depths[0])])
         self.norm1 = norm_layer(embed_dims[3])
 
-        cur += depths[0]
-        
-
+        # img_size = 224
+        # patch_size = 4
+        # in_chans = 3
+        # num_classes = 1000
+        # embed_dims = [64, 128, 320, 512]
+        # num_heads = [1, 2, 5, 8]
+        # mlp_ratios = [4, 4, 4, 4]
+        # qkv_bias = True
+        # qk_scale = None
+        # drop_rate = 0.0
+        # attn_drop_rate = 0.0
+        # drop_path_rate = 0.1
+        # norm_layer = functools.partial(<class 'torch.nn.modules.normalization.LayerNorm'>, eps=1e-06)
+        # depths = [3, 4, 6, 3]
+        # sr_ratios = [8, 4, 2, 1]
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
@@ -588,31 +960,42 @@ class DecoderTransformer(nn.Module):
             if m.bias is not None:
                 m.bias.data.zero_()
 
-    def init_weights(self, pretrained=None):
-        if isinstance(pretrained, str):
-            logger = get_root_logger()
-            load_checkpoint(self, pretrained, map_location='cpu', strict=False, logger=logger)
+    # # xxxx8888 remove ?
+    # def init_weights(self, pretrained=None):
+    #     if isinstance(pretrained, str):
+    #         logger = get_root_logger()
+    #         load_checkpoint(self, pretrained, map_location='cpu', strict=False, logger=logger)
 
-    def reset_drop_path(self, drop_path_rate):
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
-        cur = 0
-        for i in range(self.depths[0]):
-            self.block1[i].drop_path.drop_prob = dpr[cur + i]
+    # xxxx8888, remove ?
+    # def reset_drop_path(self, drop_path_rate):
+    #     pdb.set_trace()
 
-        cur += self.depths[0]
-        for i in range(self.depths[1]):
-            self.block2[i].drop_path.drop_prob = dpr[cur + i]
+    #     dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
+    #     cur = 0
+    #     for i in range(self.depths[0]):
+    #         self.block1[i].drop_path.drop_prob = dpr[cur + i]
 
-        cur += self.depths[1]
-        for i in range(self.depths[2]):
-            self.block3[i].drop_path.drop_prob = dpr[cur + i]
+    #     cur += self.depths[0]
+    #     for i in range(self.depths[1]):
+    #         self.block2[i].drop_path.drop_prob = dpr[cur + i]
 
-        cur += self.depths[2]
-        for i in range(self.depths[3]):
-            self.block4[i].drop_path.drop_prob = dpr[cur + i]
+    #     cur += self.depths[1]
+    #     for i in range(self.depths[2]):
+    #         self.block3[i].drop_path.drop_prob = dpr[cur + i]
 
+    #     cur += self.depths[2]
+    #     for i in range(self.depths[3]):
+    #         self.block4[i].drop_path.drop_prob = dpr[cur + i]
+    #     pdb.set_trace()
     
-    def forward_features(self, x):
+    def forward(self, x):
+        # len(x), x[0].size(), x[1].size(), x[2].size(), x[3].size()
+        # (4, 
+        #  torch.Size([1, 64, 92, 160]),
+        #  torch.Size([1, 128, 46, 80]), 
+        #  torch.Size([1, 320, 23, 40]), 
+        #  torch.Size([1, 512, 12, 20]))
+
         x=x[3]
         B = x.shape[0]
         outs = []
@@ -624,14 +1007,9 @@ class DecoderTransformer(nn.Module):
         x = self.norm1(x)
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         outs.append(x)
-
+        # (Pdb) len(outs), outs[0].size()
+        # (1, torch.Size([1, 512, 6, 10]))
         return outs
-
-    def forward(self, x):
-        x = self.forward_features(x)
-        # x = self.head(x)
-
-        return x
 
 class Tenc(EncoderTransformer):
     def __init__(self, **kwargs):
@@ -639,6 +1017,7 @@ class Tenc(EncoderTransformer):
             patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 4, 4], mlp_ratios=[2, 2, 2, 2],
             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[4, 2, 2, 1],
             drop_rate=0.0, drop_path_rate=0.1)
+        # kwargs = {}
 
 class Tdec(DecoderTransformer):
     def __init__(self, **kwargs):
@@ -646,6 +1025,7 @@ class Tdec(DecoderTransformer):
             patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
             drop_rate=0.0, drop_path_rate=0.1)
+        # kwargs = {}
 
 
 class convprojection(nn.Module):
@@ -664,9 +1044,85 @@ class convprojection(nn.Module):
         self.convd1x = UpsampleConvLayer(16, 8, kernel_size=4, stride=2)
         self.conv_output = ConvLayer(8, 3, kernel_size=3, stride=1, padding=1)
 
-        self.active = nn.Tanh()        
+        self.active = nn.Tanh()
+        # self = convprojection(
+        #   (convd32x): UpsampleConvLayer(
+        #     (conv2d): ConvTranspose2d(512, 512, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
+        #   )
+        #   (convd16x): UpsampleConvLayer(
+        #     (conv2d): ConvTranspose2d(512, 320, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
+        #   )
+        #   (dense_4): Sequential(
+        #     (0): ResidualBlock(
+        #       (conv1): ConvLayer(
+        #         (conv2d): Conv2d(320, 320, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        #       )
+        #       (conv2): ConvLayer(
+        #         (conv2d): Conv2d(320, 320, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        #       )
+        #       (relu): ReLU()
+        #     )
+        #   )
+        #   (convd8x): UpsampleConvLayer(
+        #     (conv2d): ConvTranspose2d(320, 128, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
+        #   )
+        #   (dense_3): Sequential(
+        #     (0): ResidualBlock(
+        #       (conv1): ConvLayer(
+        #         (conv2d): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        #       )
+        #       (conv2): ConvLayer(
+        #         (conv2d): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        #       )
+        #       (relu): ReLU()
+        #     )
+        #   )
+        #   (convd4x): UpsampleConvLayer(
+        #     (conv2d): ConvTranspose2d(128, 64, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
+        #   )
+        #   (dense_2): Sequential(
+        #     (0): ResidualBlock(
+        #       (conv1): ConvLayer(
+        #         (conv2d): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        #       )
+        #       (conv2): ConvLayer(
+        #         (conv2d): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        #       )
+        #       (relu): ReLU()
+        #     )
+        #   )
+        #   (convd2x): UpsampleConvLayer(
+        #     (conv2d): ConvTranspose2d(64, 16, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
+        #   )
+        #   (dense_1): Sequential(
+        #     (0): ResidualBlock(
+        #       (conv1): ConvLayer(
+        #         (conv2d): Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        #       )
+        #       (conv2): ConvLayer(
+        #         (conv2d): Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        #       )
+        #       (relu): ReLU()
+        #     )
+        #   )
+        #   (convd1x): UpsampleConvLayer(
+        #     (conv2d): ConvTranspose2d(16, 8, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
+        #   )
+        #   (conv_output): ConvLayer(
+        #     (conv2d): Conv2d(8, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        #   )
+        #   (active): Tanh()
+        # )
+        # path = None
+        # kwargs = {}
 
     def forward(self,x1,x2):
+        # len(x1), x1[0].size(), x1[1].size(), x1[2].size(), x1[3].size()
+        # (4, torch.Size([1, 64, 92, 160]), 
+        #     torch.Size([1, 128, 46, 80]), 
+        #     torch.Size([1, 320, 23, 40]), 
+        #     torch.Size([1, 512, 12, 20]))
+        # len(x2),x2[0].size() -- (1, torch.Size([1, 512, 6, 10]))
 
         res32x = self.convd32x(x2[0])
 
@@ -703,104 +1159,93 @@ class convprojection(nn.Module):
         x = res2x
         x = self.dense_1(x)
         x = self.convd1x(x)
+        # x.size() -- torch.Size([1, 8, 368, 640])
 
         return x
 
-class convprojection_base(nn.Module):
-    def __init__(self, path=None, **kwargs):
-        super(convprojection_base,self).__init__()
+# xxxx8888, removed
+# class convprojection_base(nn.Module):
+#     def __init__(self, path=None, **kwargs):
+#         super(convprojection_base,self).__init__()
 
-        # self.convd32x = UpsampleConvLayer(512, 512, kernel_size=4, stride=2)
-        self.convd16x = UpsampleConvLayer(512, 320, kernel_size=4, stride=2)
-        self.dense_4 = nn.Sequential(ResidualBlock(320))
-        self.convd8x = UpsampleConvLayer(320, 128, kernel_size=4, stride=2)
-        self.dense_3 = nn.Sequential(ResidualBlock(128))
-        self.convd4x = UpsampleConvLayer(128, 64, kernel_size=4, stride=2)
-        self.dense_2 = nn.Sequential(ResidualBlock(64))
-        self.convd2x = UpsampleConvLayer(64, 16, kernel_size=4, stride=2)
-        self.dense_1 = nn.Sequential( ResidualBlock(16))
-        self.convd1x = UpsampleConvLayer(16, 8, kernel_size=4, stride=2)
-        self.conv_output = ConvLayer(8, 3, kernel_size=3, stride=1, padding=1)
+#         # self.convd32x = UpsampleConvLayer(512, 512, kernel_size=4, stride=2)
+#         self.convd16x = UpsampleConvLayer(512, 320, kernel_size=4, stride=2)
+#         self.dense_4 = nn.Sequential(ResidualBlock(320))
+#         self.convd8x = UpsampleConvLayer(320, 128, kernel_size=4, stride=2)
+#         self.dense_3 = nn.Sequential(ResidualBlock(128))
+#         self.convd4x = UpsampleConvLayer(128, 64, kernel_size=4, stride=2)
+#         self.dense_2 = nn.Sequential(ResidualBlock(64))
+#         self.convd2x = UpsampleConvLayer(64, 16, kernel_size=4, stride=2)
+#         self.dense_1 = nn.Sequential( ResidualBlock(16))
+#         self.convd1x = UpsampleConvLayer(16, 8, kernel_size=4, stride=2)
+#         self.conv_output = ConvLayer(8, 3, kernel_size=3, stride=1, padding=1)
 
-        self.active = nn.Tanh()        
+#         self.active = nn.Tanh()        
 
-    def forward(self,x1):
+#     def forward(self,x1):
+#         res16x = self.convd16x(x1[3]) 
 
-#         if x1[3].shape[3] != res32x.shape[3] and x1[3].shape[2] != res32x.shape[2]:
+#         if x1[2].shape[3] != res16x.shape[3] and x1[2].shape[2] != res16x.shape[2]:
 #             p2d = (0,-1,0,-1)
-#             res32x = F.pad(res32x,p2d,"constant",0)
-            
-#         elif x1[3].shape[3] != res32x.shape[3] and x1[3].shape[2] == res32x.shape[2]:
+#             res16x = F.pad(res16x,p2d,"constant",0)
+#         elif x1[2].shape[3] != res16x.shape[3] and x1[2].shape[2] == res16x.shape[2]:
 #             p2d = (0,-1,0,0)
-#             res32x = F.pad(res32x,p2d,"constant",0)
-#         elif x1[3].shape[3] == res32x.shape[3] and x1[3].shape[2] != res32x.shape[2]:
+#             res16x = F.pad(res16x,p2d,"constant",0)
+#         elif x1[2].shape[3] == res16x.shape[3] and x1[2].shape[2] != res16x.shape[2]:
 #             p2d = (0,0,0,-1)
-#             res32x = F.pad(res32x,p2d,"constant",0)
+#             res16x = F.pad(res16x,p2d,"constant",0)
 
-#         res16x = res32x + x1[3]
-        res16x = self.convd16x(x1[3]) 
+#         res8x = self.dense_4(res16x) + x1[2]
+#         res8x = self.convd8x(res8x) 
+#         res4x = self.dense_3(res8x) + x1[1]
+#         res4x = self.convd4x(res4x)
+#         res2x = self.dense_2(res4x) + x1[0]
+#         res2x = self.convd2x(res2x)
+#         x = res2x
+#         x = self.dense_1(x)
+#         x = self.convd1x(x)
 
-        if x1[2].shape[3] != res16x.shape[3] and x1[2].shape[2] != res16x.shape[2]:
-            p2d = (0,-1,0,-1)
-            res16x = F.pad(res16x,p2d,"constant",0)
-        elif x1[2].shape[3] != res16x.shape[3] and x1[2].shape[2] == res16x.shape[2]:
-            p2d = (0,-1,0,0)
-            res16x = F.pad(res16x,p2d,"constant",0)
-        elif x1[2].shape[3] == res16x.shape[3] and x1[2].shape[2] != res16x.shape[2]:
-            p2d = (0,0,0,-1)
-            res16x = F.pad(res16x,p2d,"constant",0)
-
-        res8x = self.dense_4(res16x) + x1[2]
-        res8x = self.convd8x(res8x) 
-        res4x = self.dense_3(res8x) + x1[1]
-        res4x = self.convd4x(res4x)
-        res2x = self.dense_2(res4x) + x1[0]
-        res2x = self.convd2x(res2x)
-        x = res2x
-        x = self.dense_1(x)
-        x = self.convd1x(x)
-
-        return x
+#         return x
 
 
 ## The following is the network which can be fine-tuned for specific datasets
+# xxxx8888, removed
+# class Transweather_base(nn.Module):
 
-class Transweather_base(nn.Module):
+#     def __init__(self, path=None, **kwargs):
+#         super(Transweather_base, self).__init__()
 
-    def __init__(self, path=None, **kwargs):
-        super(Transweather_base, self).__init__()
-
-        self.Tenc = Tenc()
+#         self.Tenc = Tenc()
         
-        self.convproj = convprojection_base()
+#         self.convproj = convprojection_base()
 
-        self.clean = ConvLayer(8, 3, kernel_size=3, stride=1, padding=1)
+#         self.clean = ConvLayer(8, 3, kernel_size=3, stride=1, padding=1)
 
-        self.active = nn.Tanh()
+#         self.active = nn.Tanh()
         
-        if path is not None:
-            self.load(path)
+#         if path is not None:
+#             self.load(path)
 
-    def forward(self, x):
+#     def forward(self, x):
 
-        x1 = self.Tenc(x)
+#         x1 = self.Tenc(x)
 
-        x = self.convproj(x1)
+#         x = self.convproj(x1)
 
-        clean = self.active(self.clean(x))
+#         clean = self.active(self.clean(x))
 
-        return clean
+#         return clean
 
-    def load(self, path):
-        """
-        Load checkpoint.
-        """
-        checkpoint = torch.load(path, map_location=lambda storage, loc: storage)
-        model_state_dict_keys = self.state_dict().keys()
-        checkpoint_state_dict_noprefix = strip_prefix_if_present(checkpoint['state_dict'], "module.")
-        self.load_state_dict(checkpoint_state_dict_noprefix, strict=False)
-        del checkpoint
-        torch.cuda.empty_cache()
+#     def load(self, path):
+#         """
+#         Load checkpoint.
+#         """
+#         checkpoint = torch.load(path, map_location=lambda storage, loc: storage)
+#         model_state_dict_keys = self.state_dict().keys()
+#         checkpoint_state_dict_noprefix = strip_prefix_if_present(checkpoint['state_dict'], "module.")
+#         self.load_state_dict(checkpoint_state_dict_noprefix, strict=False)
+#         del checkpoint
+#         torch.cuda.empty_cache()
 
 
 ## The following is original network found in paper which solves all-weather removal problems 
@@ -823,16 +1268,24 @@ class Transweather(nn.Module):
         
         if path is not None:
             self.load(path)
+        # path = None
+        # kwargs = {}
 
     def forward(self, x):
-
+        # x.size() -- torch.Size([1, 3, 368, 640])
         x1 = self.Tenc(x)
-
+        # len(x1), x1[0].size(), x1[1].size(),x1[2].size(), x1[3].size()
+        # (4, torch.Size([1, 64, 92, 160]), 
+        #     torch.Size([1, 128, 46, 80]), 
+        #     torch.Size([1, 320, 23, 40]), 
+        #     torch.Size([1, 512, 12, 20]))
         x2 = self.Tdec(x1)
-
+        # len(x2), x2[0].size() -- (1, torch.Size([1, 512, 6, 10]))
         x = self.convtail(x1,x2)
+        # x.size() -- torch.Size([1, 8, 368, 640])
 
         clean = self.active(self.clean(x))
+        # self.clean(x).size() -- torch.Size([1, 3, 368, 640])
 
         return clean
 
@@ -842,6 +1295,7 @@ class Transweather(nn.Module):
         """
         checkpoint = torch.load(path, map_location=lambda storage, loc: storage)
         model_state_dict_keys = self.state_dict().keys()
+        pdb.set_trace()
         checkpoint_state_dict_noprefix = strip_prefix_if_present(checkpoint['state_dict'], "module.")
         self.load_state_dict(checkpoint_state_dict_noprefix, strict=False)
         del checkpoint

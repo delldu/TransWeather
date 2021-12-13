@@ -131,6 +131,8 @@ def validation_val(net, val_data_loader, device, exp_name, category, save_tag=Fa
             gimage.save(gfile)
             # save_image(pred_image, imgid, exp_name,category)
 
+        # xxxx8888, only test one sample for debug
+        break
     avr_psnr = sum(psnr_list) / len(psnr_list)
     avr_ssim = sum(ssim_list) / len(ssim_list)
     return avr_psnr, avr_ssim

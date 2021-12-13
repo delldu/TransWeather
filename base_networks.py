@@ -10,95 +10,109 @@ from torch.nn import functional as F
 from torch.autograd import Function
 
 from math import sqrt
-
 import random
+import pdb
 
-class ConvBlock(torch.nn.Module):
-    def __init__(self, input_size, output_size, kernel_size=3, stride=1, padding=1, bias=True, activation='prelu', norm=None):
-        super(ConvBlock, self).__init__()
-        self.conv = torch.nn.Conv2d(input_size, output_size, kernel_size, stride, padding, bias=bias)
+# xxxx8888 remove ?
 
-        self.norm = norm
-        if self.norm =='batch':
-            self.bn = torch.nn.BatchNorm2d(output_size)
-        elif self.norm == 'instance':
-            self.bn = torch.nn.InstanceNorm2d(output_size)
+# class ConvBlock(torch.nn.Module):
+#     def __init__(self, input_size, output_size, kernel_size=3, stride=1, padding=1, bias=True, activation='prelu', norm=None):
+#         super(ConvBlock, self).__init__()
+#         self.conv = torch.nn.Conv2d(input_size, output_size, kernel_size, stride, padding, bias=bias)
 
-        self.activation = activation
-        if self.activation == 'relu':
-            self.act = torch.nn.ReLU(True)
-        elif self.activation == 'prelu':
-            self.act = torch.nn.PReLU()
-        elif self.activation == 'lrelu':
-            self.act = torch.nn.LeakyReLU(0.2, True)
-        elif self.activation == 'tanh':
-            self.act = torch.nn.Tanh()
-        elif self.activation == 'sigmoid':
-            self.act = torch.nn.Sigmoid()
+#         self.norm = norm
+#         if self.norm =='batch':
+#             self.bn = torch.nn.BatchNorm2d(output_size)
+#         elif self.norm == 'instance':
+#             self.bn = torch.nn.InstanceNorm2d(output_size)
 
-    def forward(self, x):
-        if self.norm is not None:
-            out = self.bn(self.conv(x))
-        else:
-            out = self.conv(x)
+#         self.activation = activation
+#         if self.activation == 'relu':
+#             self.act = torch.nn.ReLU(True)
+#         elif self.activation == 'prelu':
+#             self.act = torch.nn.PReLU()
+#         elif self.activation == 'lrelu':
+#             self.act = torch.nn.LeakyReLU(0.2, True)
+#         elif self.activation == 'tanh':
+#             self.act = torch.nn.Tanh()
+#         elif self.activation == 'sigmoid':
+#             self.act = torch.nn.Sigmoid()
 
-        if self.activation != 'no':
-            return self.act(out)
-        else:
-            return out
+#     def forward(self, x):
+#         if self.norm is not None:
+#             out = self.bn(self.conv(x))
+#         else:
+#             out = self.conv(x)
 
-class DeconvBlock(torch.nn.Module):
-    def __init__(self, input_size, output_size, kernel_size=4, stride=2, padding=1, bias=True, activation='prelu', norm=None):
-        super(DeconvBlock, self).__init__()
-        self.deconv = torch.nn.ConvTranspose2d(input_size, output_size, kernel_size, stride, padding, bias=bias)
+#         if self.activation != 'no':
+#             return self.act(out)
+#         else:
+#             return out
 
-        self.norm = norm
-        if self.norm == 'batch':
-            self.bn = torch.nn.BatchNorm2d(output_size)
-        elif self.norm == 'instance':
-            self.bn = torch.nn.InstanceNorm2d(output_size)
+# xxxx8888 remove ?
+# class DeconvBlock(torch.nn.Module):
+#     def __init__(self, input_size, output_size, kernel_size=4, stride=2, padding=1, bias=True, activation='prelu', norm=None):
+#         super(DeconvBlock, self).__init__()
+#         self.deconv = torch.nn.ConvTranspose2d(input_size, output_size, kernel_size, stride, padding, bias=bias)
 
-        self.activation = activation
-        if self.activation == 'relu':
-            self.act = torch.nn.ReLU(True)
-        elif self.activation == 'prelu':
-            self.act = torch.nn.PReLU()
-        elif self.activation == 'lrelu':
-            self.act = torch.nn.LeakyReLU(0.2, True)
-        elif self.activation == 'tanh':
-            self.act = torch.nn.Tanh()
-        elif self.activation == 'sigmoid':
-            self.act = torch.nn.Sigmoid()
+#         self.norm = norm
+#         if self.norm == 'batch':
+#             self.bn = torch.nn.BatchNorm2d(output_size)
+#         elif self.norm == 'instance':
+#             self.bn = torch.nn.InstanceNorm2d(output_size)
 
-    def forward(self, x):
-        if self.norm is not None:
-            out = self.bn(self.deconv(x))
-        else:
-            out = self.deconv(x)
+#         self.activation = activation
+#         if self.activation == 'relu':
+#             self.act = torch.nn.ReLU(True)
+#         elif self.activation == 'prelu':
+#             self.act = torch.nn.PReLU()
+#         elif self.activation == 'lrelu':
+#             self.act = torch.nn.LeakyReLU(0.2, True)
+#         elif self.activation == 'tanh':
+#             self.act = torch.nn.Tanh()
+#         elif self.activation == 'sigmoid':
+#             self.act = torch.nn.Sigmoid()
 
-        if self.activation is not None:
-            return self.act(out)
-        else:
-            return out
+#     def forward(self, x):
+#         if self.norm is not None:
+#             out = self.bn(self.deconv(x))
+#         else:
+#             out = self.deconv(x)
+
+#         if self.activation is not None:
+#             return self.act(out)
+#         else:
+#             return out
 
 
 class ConvLayer(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
         super(ConvLayer, self).__init__()
-#         reflection_padding = kernel_size // 2
-#         self.reflection_pad = nn.ReflectionPad2d(reflection_padding)
         self.conv2d = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-
+        # print(self.conv2d)
+        # Conv2d(320, 320, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        # Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        # Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        # Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        # Conv2d(8, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+ 
     def forward(self, x):
-#         out = self.reflection_pad(x)
         out = self.conv2d(x)
         return out
 
 
 class UpsampleConvLayer(torch.nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride):
-      super(UpsampleConvLayer, self).__init__()
-      self.conv2d = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride=stride, padding=1)
+        super(UpsampleConvLayer, self).__init__()
+        self.conv2d = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride=stride, padding=1)
+        # self = UpsampleConvLayer(
+        # (conv2d): ConvTranspose2d(512, 512, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1)), xxxx8888
+        # )
+        # in_channels = 512
+        # out_channels = 512
+        # kernel_size = 4
+        # stride = 2
+
 
     def forward(self, x):
         out = self.conv2d(x)
@@ -133,34 +147,34 @@ def init_conv(conv, glu=True):
     if conv.bias is not None:
         conv.bias.data.zero_()
 
+# xxxx8888, remove
+# class EqualLR:
+#     def __init__(self, name):
+#         self.name = name
 
-class EqualLR:
-    def __init__(self, name):
-        self.name = name
+#     def compute_weight(self, module):
+#         weight = getattr(module, self.name + '_orig')
+#         fan_in = weight.data.size(1) * weight.data[0][0].numel()
 
-    def compute_weight(self, module):
-        weight = getattr(module, self.name + '_orig')
-        fan_in = weight.data.size(1) * weight.data[0][0].numel()
+#         return weight * sqrt(2 / fan_in)
 
-        return weight * sqrt(2 / fan_in)
+#     @staticmethod
+#     def apply(module, name):
+#         fn = EqualLR(name)
 
-    @staticmethod
-    def apply(module, name):
-        fn = EqualLR(name)
+#         weight = getattr(module, name)
+#         del module._parameters[name]
+#         module.register_parameter(name + '_orig', nn.Parameter(weight.data))
+#         module.register_forward_pre_hook(fn)
 
-        weight = getattr(module, name)
-        del module._parameters[name]
-        module.register_parameter(name + '_orig', nn.Parameter(weight.data))
-        module.register_forward_pre_hook(fn)
+#         return fn
 
-        return fn
+#     def __call__(self, module, input):
+#         weight = self.compute_weight(module)
+#         setattr(module, self.name, weight)
 
-    def __call__(self, module, input):
-        weight = self.compute_weight(module)
-        setattr(module, self.name, weight)
+# xxxx8888, remove
+# def equal_lr(module, name='weight'):
+#     EqualLR.apply(module, name)
 
-
-def equal_lr(module, name='weight'):
-    EqualLR.apply(module, name)
-
-    return module
+#     return module
