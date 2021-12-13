@@ -9,6 +9,7 @@ import os
 import numpy as np
 import random
 from transweather_model import Transweather
+import pdb
 
 # --- Parse hyper-parameters  --- #
 parser = argparse.ArgumentParser(description='Hyper-parameters for network')
@@ -54,8 +55,14 @@ net = nn.DataParallel(net, device_ids=device_ids)
 # --- Load the network weight --- #
 net.load_state_dict(torch.load('./{}/best'.format(exp_name)))
 
+
+
+# torch.save(net.state_dict(), "project/models/image_clear.pth")
+
 # --- Use the evaluation model in testing --- #
 net.eval()
+
+
 category = "snowtest100k"
 
 if os.path.exists('./results/{}/{}/'.format(category,exp_name))==False: 	

@@ -742,6 +742,13 @@ class Attention_dec(nn.Module):
         super().__init__()
         assert dim % num_heads == 0, f"dim {dim} should be divided by num_heads {num_heads}."
 
+        # print("qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0., sr_ratio=1 ?")
+        # print(qkv_bias, qk_scale, attn_drop, proj_drop, sr_ratio)
+        # True None 0.0 0.0 1
+        # True None 0.0 0.0 1
+        # True None 0.0 0.0 1
+
+
         self.dim = dim
         self.num_heads = num_heads
         head_dim = dim // num_heads
@@ -781,6 +788,11 @@ class Attention_dec(nn.Module):
 
     def forward(self, x, H, W):
         # xxxx8888 onnx ?
+        # https://docs.marklogic.com/guide/app-dev/PyTorch
+        # print("x.size(): ", x.size())
+        # x.size():  torch.Size([1, 60, 512])
+        # x.size():  torch.Size([1, 96, 512])
+
         B, N, C = x.shape
         task_q = self.task_query
         
@@ -898,7 +910,11 @@ class DWConv(nn.Module):
         self.dwconv = nn.Conv2d(dim, dim, 3, 1, 1, bias=True, groups=dim)
 
     def forward(self, x, H, W):
+        # torch._shape_as_tensor(x)
+        # torch._reshape_from_tensor(x, shape)
         B, N, C = x.shape
+        H_W_shape = torch.IntTensor([H, W])
+
         x = x.transpose(1, 2).view(B, C, H, W)
         x = self.dwconv(x)
         x = x.flatten(2).transpose(1, 2)

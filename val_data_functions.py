@@ -42,10 +42,12 @@ class ValData(data.Dataset):
         # --- Transform to tensor --- #
         transform_input = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         transform_gt = Compose([ToTensor()])
+
+        orig_im = transform_gt(input_img)
         input_im = transform_input(input_img)
         gt = transform_gt(gt_img)
 
-        return input_im, gt, input_name
+        return input_im, gt, input_name, orig_im
 
     def __getitem__(self, index):
         res = self.get_images(index)

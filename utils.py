@@ -105,7 +105,8 @@ def validation_val(net, val_data_loader, device, exp_name, category, save_tag=Fa
     for batch_id, val_data in enumerate(val_data_loader):
 
         with torch.no_grad():
-            input_im, gt, imgid = val_data
+            input_im, gt, imgid, orig_im = val_data
+            orig_im = orig_im.to(device)
             input_im = input_im.to(device)
             gt = gt.to(device)
             pred_image = net(input_im)
@@ -127,12 +128,13 @@ def validation_val(net, val_data_loader, device, exp_name, category, save_tag=Fa
             if (not os.path.exists("output")):
                 os.makedirs("output")
             gfile = "output/" + os.path.basename(imgid[0])
-            gimage = grid_image([input_im, pred_image, gt], nrow=3)
+
+            gimage = grid_image([orig_im, pred_image, gt], nrow=3)
             gimage.save(gfile)
             # save_image(pred_image, imgid, exp_name,category)
 
         # xxxx8888, only test one sample for debug
-        break
+        # break
     avr_psnr = sum(psnr_list) / len(psnr_list)
     avr_ssim = sum(ssim_list) / len(ssim_list)
     return avr_psnr, avr_ssim
