@@ -60,6 +60,9 @@ if __name__ == "__main__":
     model = model.to(device)
     model.eval()
 
+    # torch.save(model.state_dict(), "/tmp/image_weather.pth")
+
+
     # totensor = transforms.ToTensor()
     trans_input = T.Compose([T.ToTensor(), T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     trans_gt = T.Compose([T.ToTensor()])

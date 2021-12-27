@@ -1,4 +1,4 @@
-"""Create model."""# coding=utf-8
+"""Image Weather Model."""# coding=utf-8
 #
 # /************************************************************************************
 # ***
@@ -91,7 +91,7 @@ class ImageWeatherModel(nn.Module):
         clean = self.active(self.clean(x))
         # self.clean(x).size() -- torch.Size([1, 3, 368, 640])
 
-        return clean
+        return clean.clamp(0.0, 1.0)
 
 
 class EncoderTransformer(nn.Module):

@@ -18,7 +18,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from model_helper import ImageClearModel
+from model_helper import ImageWeatherModel
 
 
 def model_load(model, path):
@@ -48,7 +48,7 @@ def get_model(checkpoint):
     """Create model."""
 
     model_setenv()
-    model = ImageClearModel()
+    model = ImageWeatherModel()
     model_load(model, checkpoint)
     device = model_device()
     model.to(device)
