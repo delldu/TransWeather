@@ -7,7 +7,7 @@ all:
 
 format:
 	@echo
-	find image_weather -name "*.py" -exec black -l 120 {} \;
+	find clean_weather -name "*.py" -exec black -l 120 {} \;
 
 install:
 	python setup.py install
@@ -16,4 +16,4 @@ uninstall:
 	python setup.py uninstall
 
 clean:
-	rm -rf build dist image_weather.egg-info
+	rm -rf build dist clean_weather.egg-info

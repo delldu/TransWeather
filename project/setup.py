@@ -15,15 +15,15 @@ with open("README.md", "r") as file:
     long_description = file.read()
 
 setup(
-    name="image_weather",
+    name="clean_weather",
     version="1.0.0",
     author="Dell Du",
     author_email="18588220928@163.com",
     description="todos",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/dell/TorchBusybox",
-    packages=["image_weather"],
+    url="https://github.com/delldu/TransWeather",
+    packages=["clean_weather"],
     package_data={"todos": ["models/image_weather.pth"]},
     include_package_data=True,
     classifiers=[
