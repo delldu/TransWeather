@@ -1,4 +1,4 @@
-"""Image Weather Model."""  # coding=utf-8
+"""Clean Weather Model."""  # coding=utf-8
 #
 # /************************************************************************************
 # ***
@@ -64,9 +64,9 @@ class ResidualBlock(torch.nn.Module):
         return out
 
 
-class ImageWeatherModel(nn.Module):
+class CleanWeatherModel(nn.Module):
     def __init__(self):
-        super(ImageWeatherModel, self).__init__()
+        super(CleanWeatherModel, self).__init__()
         self.Tenc = Tenc()
         self.Tdec = Tdec()
         self.convtail = convprojection()
@@ -1448,5 +1448,5 @@ def trunc_normal_(tensor, mean=0.0, std=1.0, a=-2.0, b=2.0):
 
 
 if __name__ == "__main__":
-    model = ImageWeatherModel()
+    model = CleanWeatherModel()
     print(model)
