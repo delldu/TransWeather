@@ -27,7 +27,6 @@ WEATHER_MEAN = (0.5, 0.5, 0.5)
 WEATHER_STD = (0.5, 0.5, 0.5)
 WEATHER_TIMES = 32
 
-
 def get_model(checkpoint):
     """Create model."""
 
@@ -73,7 +72,7 @@ def image_server(name, HOST="localhost", port=6379):
     checkpoint = os.path.dirname(__file__) + "/models/image_weather.pth"
     model, device = get_model(checkpoint)
 
-    def do_service(input_file, output_file):
+    def do_service(input_file, output_file, targ):
         print(f"  clean {input_file} ...")
         try:
             input_tensor = todos.data.load_tensor(input_file)
@@ -112,7 +111,7 @@ def image_predict(input_files, output_dir):
         todos.data.save_tensor([orig_tensor, predict_tensor], output_file)
 
 
-def video_predict(input_file, output_file):
+def video_service(input_file, output_file, targ):
     # load video
     video = redos.video.Reader(input_file)
     if video.n_frames < 1:
@@ -164,4 +163,8 @@ def video_client(name, input_file, output_file):
 
 
 def video_server(name, HOST="localhost", port=6379):
-    return redos.video.service(name, "video_weather", video_predict, HOST, port)
+    return redos.video.service(name, "video_weather", video_service, HOST, port)
+
+
+def video_predict(input_file, output_file):
+    return video_service(input_file, output_file, None)
