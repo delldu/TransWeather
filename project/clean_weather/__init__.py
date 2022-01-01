@@ -47,7 +47,7 @@ def model_forward(model, device, input_tensor):
 
     # zeropad for model
     H, W = input_tensor.size(2), input_tensor.size(3)
-    if H % WEATHER_TIMES == 0 and H % WEATHER_TIMES == 0:
+    if H % WEATHER_TIMES == 0 and W % WEATHER_TIMES == 0:
         return todos.model.forward(model, device, input_tensor)
 
     # else
