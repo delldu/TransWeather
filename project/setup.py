@@ -24,7 +24,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/delldu/TransWeather",
     packages=["clean_weather"],
-    package_data={"clean_weather": ["models/image_weather.pth"]},
+    package_data={"clean_weather": ["models/clean_weather.pth"]},
     include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3",

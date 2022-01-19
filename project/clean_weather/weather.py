@@ -725,15 +725,14 @@ class OverlapPatchEmbed(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x):
-        # x.size() -- torch.Size([1, 3, 368, 640])
+        # x.size() -- [1, 3, 368, 640]
         x = self.proj(x)
-        # x.size() -- torch.Size([1, 64, 92, 160])
+        # x.size() -- [1, 64, 92, 160]
         _, _, H, W = x.shape
         # 92*160 -- 14720
         x = x.flatten(2).transpose(1, 2)
         x = self.norm(x)
-
-        # x.size() -- torch.Size([1, 14720, 64])
+        # x.size() -- [1, 14720, 64]
 
         return x, H, W
 
@@ -926,9 +925,9 @@ class Attention_dec(nn.Module):
         B, N, C = x.shape
         task_q = self.task_query
 
-        # This is because we fix the task parameters to be of a certain dimension, so with varying batch size, we just stack up the same queries to operate on the entire batch
+        # fix the task parameters to be of a certain dimension, so with varying batch size,
+        # we just stack up the same queries to operate on the entire batch
         if B > 1:
-
             task_q = task_q.unsqueeze(0).repeat(B, 1, 1, 1)
             task_q = task_q.squeeze(1)
 
@@ -980,8 +979,7 @@ class Block_dec(nn.Module):
             sr_ratio=sr_ratio,
         )
 
-        # drop_path: ------- 0.0
-        # drop_path: ------- 0.014285714365541935
+        # drop_path: ---- 0.0 or 0.014285714365541935
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)

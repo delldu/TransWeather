@@ -27,8 +27,12 @@ WEATHER_MEAN = (0.5, 0.5, 0.5)
 WEATHER_STD = (0.5, 0.5, 0.5)
 WEATHER_TIMES = 32
 
-def get_model(checkpoint):
+def get_model():
     """Create model."""
+
+    model_path = "models/clean_weather.pth"
+    cdir = os.path.dirname(__file__)
+    checkpoint = model_path if cdir == "" else cdir + "/" + model_path
 
     model = weather.CleanWeatherModel()
     todos.model.load(model, checkpoint)
@@ -69,8 +73,7 @@ def image_client(name, input_files, output_dir):
 
 def image_server(name, HOST="localhost", port=6379):
     # load model
-    checkpoint = os.path.dirname(__file__) + "/models/image_weather.pth"
-    model, device = get_model(checkpoint)
+    model, device = get_model()
 
     def do_service(input_file, output_file, targ):
         print(f"  clean {input_file} ...")
@@ -90,8 +93,7 @@ def image_predict(input_files, output_dir):
     todos.data.mkdir(output_dir)
 
     # load model
-    checkpoint = os.path.dirname(__file__) + "/models/image_weather.pth"
-    model, device = get_model(checkpoint)
+    model, device = get_model()
 
     # load files
     image_filenames = todos.data.load_files(input_files)
@@ -123,8 +125,7 @@ def video_service(input_file, output_file, targ):
     todos.data.mkdir(output_dir)
 
     # load model
-    checkpoint = os.path.dirname(__file__) + "/models/image_weather.pth"
-    model, device = get_model(checkpoint)
+    model, device = get_model()
 
     print(f"  clean {input_file}, save to {output_file} ...")
     progress_bar = tqdm(total=video.n_frames)

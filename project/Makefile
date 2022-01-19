@@ -16,4 +16,4 @@ uninstall:
 	python setup.py uninstall
 
 clean:
-	rm -rf build dist clean_weather.egg-info
+	rm -rf build dist clean_weather.egg-info __pycache__
