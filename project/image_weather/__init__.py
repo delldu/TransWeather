@@ -30,7 +30,7 @@ WEATHER_TIMES = 32
 def get_model():
     """Create model."""
 
-    model_path = "models/clean_weather.pth"
+    model_path = "models/image_weather.pth"
     cdir = os.path.dirname(__file__)
     checkpoint = model_path if cdir == "" else cdir + "/" + model_path
 

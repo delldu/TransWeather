@@ -1,11 +1,11 @@
-import clean_weather
+import image_weather
 
-clean_weather.image_client("PAI", "images/input/*.png", "output")
-clean_weather.image_server("PAI")
+image_weather.image_client("TAI", "images/input/*.png", "output")
+image_weather.image_server("TAI")
 
-clean_weather.video_client("PAI", "/home/dell/noise.mp4", "output/server_clean.mp4")
-clean_weather.video_server("PAI")
+image_weather.video_client("TAI", "/home/dell/noise.mp4", "output/server_clean.mp4")
+image_weather.video_server("TAI")
 
-clean_weather.image_predict("images/input/*.png", "output")
-clean_weather.video_predict("/home/dell/noise.mp4", "output/predict_clean.mp4")
+image_weather.image_predict("images/input/*.png", "output")
+image_weather.video_predict("/home/dell/noise.mp4", "output/predict_clean.mp4")
 
