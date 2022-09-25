@@ -15,47 +15,126 @@ import os
 import time
 from tqdm import tqdm
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 import redos
 import todos
 
-from . import weather
+from . import light_rain
+from . import heavy_rain
+from . import rain_class
 
 import pdb
 
-WEATHER_MEAN = (0.5, 0.5, 0.5)
-WEATHER_STD = (0.5, 0.5, 0.5)
-WEATHER_TIMES = 32
+# LIGHT_RAIN_MEAN = (0.5, 0.5, 0.5)
+# LIGHT_RAIN_STD = (0.5, 0.5, 0.5)
+DERAIN_TIMES = 32
+
+
+class DerainModel(nn.Module):
+    def __init__(self):
+        super(DerainModel, self).__init__()
+        self.rain_class = get_rain_class_model()
+        self.remove_heavy_rain = get_heavy_rain_model()
+        self.remove_light_rain = get_light_rain_model()
+
+    def forward(self, x):
+        cx = F.interpolate(x, size=(224, 224), mode="bilinear", align_corners=False)
+        c = self.rain_class(cx)
+        _, label = torch.max(c, dim=1)
+        c = label[0].item()
+        if c == 0:
+            x = self.remove_heavy_rain(x)
+        else:
+            x = self.remove_light_rain(x)
+        return x
+
+
+def get_rain_class_model():
+    """Create rain class model."""
+
+    model_path = "models/rain_class.pth"
+    cdir = os.path.dirname(__file__)
+    checkpoint = model_path if cdir == "" else cdir + "/" + model_path
+
+    model = rain_class.MobileViT_XXS(pretrained=False)
+    rain_class.RefineMobileVit(model, 2)  # only heavy, light class
+
+    if os.path.exists(checkpoint):
+        todos.model.load(model, checkpoint)
+
+    return model
+
+
+def get_light_rain_model():
+    """Create light model."""
+
+    model_path = "models/remove_light_rain.pth"
+    cdir = os.path.dirname(__file__)
+    checkpoint = model_path if cdir == "" else cdir + "/" + model_path
+
+    model = light_rain.RemoveLightRainModel()
+    if os.path.exists(checkpoint):
+        todos.model.load(model, checkpoint)
+
+    return model
+
+
+def get_heavy_rain_model():
+    """Create heavy rain model."""
+
+    model_path = "models/remove_heavy_rain.pth"
+    cdir = os.path.dirname(__file__)
+    checkpoint = model_path if cdir == "" else cdir + "/" + model_path
+
+    model = heavy_rain.RemoveHeavyRainModel()
+    if os.path.exists(checkpoint):
+        todos.model.load(model, checkpoint, "params")
+
+    return model
+
 
 def get_model():
     """Create model."""
 
-    model_path = "models/image_weather.pth"
+    model_path = "models/image_derain.pth"
     cdir = os.path.dirname(__file__)
     checkpoint = model_path if cdir == "" else cdir + "/" + model_path
 
-    model = weather.CleanWeatherModel()
-    todos.model.load(model, checkpoint)
     device = todos.model.get_device()
+    model = DerainModel()
+
+    # if os.path.exists(checkpoint):
+    #     todos.model.load(model, checkpoint)
+    # else:
+    #     torch.save(model.state_dict(), checkpoint)
+    todos.model.load(model, checkpoint)
+
     model = model.to(device)
     model.eval()
+
+    todos.data.mkdir("output")
+    if not os.path.exists("output/image_derain.torch"):
+        model = torch.jit.script(model)
+        model.save("output/image_derain.torch")
 
     return model, device
 
 
 def model_forward(model, device, input_tensor):
     # normal_tensor only support CxHxW !!!
-    input_tensor = input_tensor.squeeze(0)
-    todos.data.normal_tensor(input_tensor, mean=WEATHER_MEAN, std=WEATHER_STD)
-    input_tensor = input_tensor.unsqueeze(0)
+    # input_tensor = input_tensor.squeeze(0)
+    # todos.data.normal_tensor(input_tensor, mean=LIGHT_RAIN_MEAN, std=LIGHT_RAIN_STD)
+    # input_tensor = input_tensor.unsqueeze(0)
 
     # zeropad for model
     H, W = input_tensor.size(2), input_tensor.size(3)
-    if H % WEATHER_TIMES == 0 and W % WEATHER_TIMES == 0:
+    if H % DERAIN_TIMES == 0 and W % DERAIN_TIMES == 0:
         return todos.model.forward(model, device, input_tensor)
 
     # else
-    input_tensor = todos.data.zeropad_tensor(input_tensor, times=WEATHER_TIMES)
+    input_tensor = todos.data.zeropad_tensor(input_tensor, times=DERAIN_TIMES)
     output_tensor = todos.model.forward(model, device, input_tensor)
     return output_tensor[:, :, 0:H, 0:W]
 
@@ -76,7 +155,7 @@ def image_server(name, HOST="localhost", port=6379):
     model, device = get_model()
 
     def do_service(input_file, output_file, targ):
-        print(f"  clean {input_file} ...")
+        print(f"  derain {input_file} ...")
         try:
             input_tensor = todos.data.load_tensor(input_file)
             output_tensor = model_forward(model, device, input_tensor)
@@ -85,7 +164,7 @@ def image_server(name, HOST="localhost", port=6379):
         except:
             return False
 
-    return redos.image.service(name, "image_weather", do_service, HOST, port)
+    return redos.image.service(name, "image_derain", do_service, HOST, port)
 
 
 def image_predict(input_files, output_dir):
@@ -127,7 +206,7 @@ def video_service(input_file, output_file, targ):
     # load model
     model, device = get_model()
 
-    print(f"  clean {input_file}, save to {output_file} ...")
+    print(f"  derain {input_file}, save to {output_file} ...")
     progress_bar = tqdm(total=video.n_frames)
 
     def clean_video_frame(no, data):

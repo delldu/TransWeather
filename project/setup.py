@@ -15,16 +15,16 @@ with open("README.md", "r") as file:
     long_description = file.read()
 
 setup(
-    name="image_weather",
+    name="image_derain",
     version="1.0.0",
     author="Dell Du",
     author_email="18588220928@163.com",
-    description="clean image weather package",
+    description="image derain package",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/delldu/TransWeather",
-    packages=["image_weather"],
-    package_data={"image_weather": ["models/image_weather.pth"]},
+    packages=["image_derain"],
+    package_data={"image_derain": ["models/image_derain.pth"]},
     include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3",

@@ -1,4 +1,4 @@
-"""Clean Weather Model."""  # coding=utf-8
+"""Remove Light Rain Model."""  # coding=utf-8
 #
 # /************************************************************************************
 # ***
@@ -11,8 +11,9 @@
 import math
 import torch
 import torch.nn as nn
-import torch.nn.functional
 import torch.nn.functional as F
+from typing import List
+
 from functools import partial
 
 
@@ -64,9 +65,9 @@ class ResidualBlock(torch.nn.Module):
         return out
 
 
-class CleanWeatherModel(nn.Module):
+class RemoveLightRainModel(nn.Module):
     def __init__(self):
-        super(CleanWeatherModel, self).__init__()
+        super(RemoveLightRainModel, self).__init__()
         self.Tenc = Tenc()
         self.Tdec = Tdec()
         self.convtail = convprojection()
@@ -74,20 +75,23 @@ class CleanWeatherModel(nn.Module):
         self.active = nn.Tanh()
 
     def forward(self, x):
-        # x.size() -- torch.Size([1, 3, 368, 640])
+        # x normalize
+        x = (x - 0.5) / 0.5
+
+        # x.size() -- ([1, 3, 368, 640])
         x1 = self.Tenc(x)
         # len(x1), x1[0].size(), x1[1].size(),x1[2].size(), x1[3].size()
-        # (4, torch.Size([1, 64, 92, 160]),
-        #     torch.Size([1, 128, 46, 80]),
-        #     torch.Size([1, 320, 23, 40]),
-        #     torch.Size([1, 512, 12, 20]))
+        # (4, ([1, 64, 92, 160]),
+        #     ([1, 128, 46, 80]),
+        #     ([1, 320, 23, 40]),
+        #     ([1, 512, 12, 20]))
         x2 = self.Tdec(x1)
-        # len(x2), x2[0].size() -- (1, torch.Size([1, 512, 6, 10]))
+        # len(x2), x2[0].size() -- (1, ([1, 512, 6, 10]))
         x = self.convtail(x1, x2)
-        # x.size() -- torch.Size([1, 8, 368, 640])
+        # x.size() -- ([1, 8, 368, 640])
 
         clean = self.active(self.clean(x))
-        # self.clean(x).size() -- torch.Size([1, 3, 368, 640])
+        # self.clean(x).size() -- ([1, 3, 368, 640])
 
         return clean.clamp(0.0, 1.0)
 
@@ -585,31 +589,17 @@ class EncoderTransformer(nn.Module):
         # )
         # (norm4): LayerNorm((512,), eps=1e-06, elementwise_affine=True)
 
-        self.apply(self._init_weights)
-
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=0.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
-
-    def forward(self, x):
-        # pp x.size() -- torch.Size([1, 3, 368, 640])
+    def forward(self, x) -> List[torch.Tensor]:
+        # pp x.size() -- ([1, 3, 368, 640])
         B = x.shape[0]
         outs = []
         embed_dims = [64, 128, 320, 512]
+
         # stage 1
-        x1, H1, W1 = self.patch_embed1(x)
-        x2, H2, W2 = self.mini_patch_embed1(x1.permute(0, 2, 1).reshape(B, embed_dims[0], H1, W1))
+        x1, x1_proj_out = self.patch_embed1(x)
+        _, _, H1, W1 = x1_proj_out.shape
+        x2, x2_proj_out = self.mini_patch_embed1(x1.permute(0, 2, 1).reshape(B, embed_dims[0], H1, W1))
+        _, _, H2, W2 = x2_proj_out.shape
 
         for i, blk in enumerate(self.block1):
             x1 = blk(x1, H1, W1)
@@ -624,9 +614,12 @@ class EncoderTransformer(nn.Module):
         outs.append(x1)
 
         # stage 2
-        x1, H1, W1 = self.patch_embed2(x1)
+        x1, x1_proj_out = self.patch_embed2(x1)
+        _, _, H1, W1 = x1_proj_out.shape
+
         x1 = x1.permute(0, 2, 1).reshape(B, embed_dims[1], H1, W1) + x2
-        x2, H2, W2 = self.mini_patch_embed2(x1)
+        x2, x2_proj_out = self.mini_patch_embed2(x1)
+        _, _, H2, W2 = x2_proj_out.shape
 
         x1 = x1.view(x1.shape[0], x1.shape[1], -1).permute(0, 2, 1)
 
@@ -642,9 +635,11 @@ class EncoderTransformer(nn.Module):
         x2 = x2.reshape(B, H2, W2, -1).permute(0, 3, 1, 2).contiguous()
 
         # stage 3
-        x1, H1, W1 = self.patch_embed3(x1)
+        x1, x1_proj_out = self.patch_embed3(x1)
+        _, _, H1, W1 = x1_proj_out.shape
         x1 = x1.permute(0, 2, 1).reshape(B, embed_dims[2], H1, W1) + x2
-        x2, H2, W2 = self.mini_patch_embed3(x1)
+        x2, x2_proj_out = self.mini_patch_embed3(x1)
+        _, _, H2, W2 = x2_proj_out.shape
 
         x1 = x1.view(x1.shape[0], x1.shape[1], -1).permute(0, 2, 1)
 
@@ -660,9 +655,9 @@ class EncoderTransformer(nn.Module):
         x2 = x2.reshape(B, H2, W2, -1).permute(0, 3, 1, 2).contiguous()
 
         # stage 4
-        x1, H1, W1 = self.patch_embed4(x1)
+        x1, x1_proj_out = self.patch_embed4(x1)
+        _, _, H1, W1 = x1_proj_out.shape
         x1 = x1.permute(0, 2, 1).reshape(B, embed_dims[3], H1, W1) + x2
-
         x1 = x1.view(x1.shape[0], x1.shape[1], -1).permute(0, 2, 1)
 
         for i, blk in enumerate(self.block4):
@@ -672,10 +667,10 @@ class EncoderTransformer(nn.Module):
         outs.append(x1)
 
         # len(outs), outs[0].size(), outs[1].size(), outs[2].size(), outs[3].size()
-        # (4, torch.Size([1, 64, 92, 160]),
-        #     torch.Size([1, 128, 46, 80]),
-        #     torch.Size([1, 320, 23, 40]),
-        #     torch.Size([1, 512, 12, 20]))
+        # (4, ([1, 64, 92, 160]),
+        #     ([1, 128, 46, 80]),
+        #     ([1, 320, 23, 40]),
+        #     ([1, 512, 12, 20]))
 
         return outs
 
@@ -707,34 +702,19 @@ class OverlapPatchEmbed(nn.Module):
         # in_chans = 3
         # embed_dim = 64
 
-        self.apply(self._init_weights)
-
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=0.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
-
-    def forward(self, x):
+    def forward(self, x) -> List[torch.Tensor]:
         # x.size() -- [1, 3, 368, 640]
         x = self.proj(x)
         # x.size() -- [1, 64, 92, 160]
         _, _, H, W = x.shape
+        proj_out = x
+
         # 92*160 -- 14720
         x = x.flatten(2).transpose(1, 2)
         x = self.norm(x)
         # x.size() -- [1, 14720, 64]
 
-        return x, H, W
+        return x, proj_out
 
 
 class Mlp(nn.Module):
@@ -748,7 +728,6 @@ class Mlp(nn.Module):
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
 
-        self.apply(self._init_weights)
         # self = Mlp(
         #   (fc1): Linear(in_features=64, out_features=128, bias=True)
         #   (dwconv): DWConv(
@@ -764,22 +743,7 @@ class Mlp(nn.Module):
         # act_layer = <class 'torch.nn.modules.activation.GELU'>
         # drop = 0.0
 
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=0.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
-
-    def forward(self, x, H, W):
+    def forward(self, x, H: int, W: int):
         x = self.fc1(x)
         x = self.dwconv(x, H, W)
         x = self.act(x)
@@ -805,12 +769,14 @@ class Attention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
-        self.sr_ratio = sr_ratio
-        if sr_ratio > 1:
+        self.sr_ratio = sr_ratio  # ex: 4, 2, 1
+        if sr_ratio > 1.0:
             self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
             self.norm = nn.LayerNorm(dim)
+        else:
+            self.sr = nn.Identity()
+            self.norm = nn.Identity()
 
-        self.apply(self._init_weights)
         # self = Attention(
         #   (q): Linear(in_features=64, out_features=64, bias=True)
         #   (kv): Linear(in_features=64, out_features=128, bias=True)
@@ -828,23 +794,7 @@ class Attention(nn.Module):
         # proj_drop = 0.0
         # sr_ratio = 4
 
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=0.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
-
-    def forward(self, x, H, W):
-
+    def forward(self, x, H: int, W: int):
         B, N, C = x.shape
         q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
 
@@ -897,30 +847,16 @@ class Attention_dec(nn.Module):
         if sr_ratio > 1:
             self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
             self.norm = nn.LayerNorm(dim)
+        else:
+            self.sr = nn.Identity()
+            self.norm = nn.Identity()
 
-        self.apply(self._init_weights)
-
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=0.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
-
-    def forward(self, x, H, W):
+    def forward(self, x, H: int, W: int):
         # xxxx8888 onnx ?
         # https://docs.marklogic.com/guide/app-dev/PyTorch
         # print("x.size(): ", x.size())
-        # x.size():  torch.Size([1, 60, 512])
-        # x.size():  torch.Size([1, 96, 512])
+        # x.size():  ([1, 60, 512])
+        # x.size():  ([1, 96, 512])
 
         B, N, C = x.shape
         task_q = self.task_query
@@ -941,7 +877,7 @@ class Attention_dec(nn.Module):
         else:
             kv = self.kv(x).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         k, v = kv[0], kv[1]
-        q = torch.nn.functional.interpolate(q, size=(v.shape[2], v.shape[3]))
+        q = F.interpolate(q, size=(v.shape[2], v.shape[3]))
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
@@ -985,24 +921,7 @@ class Block_dec(nn.Module):
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
-        self.apply(self._init_weights)
-
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=0.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
-
-    def forward(self, x, H, W):
+    def forward(self, x, H: int, W: int):
         x = x + self.drop_path(self.attn(self.norm1(x), H, W))
         x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
 
@@ -1041,24 +960,7 @@ class Block(nn.Module):
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
-        self.apply(self._init_weights)
-
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=0.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
-
-    def forward(self, x, H, W):
+    def forward(self, x, H: int, W: int):
 
         x = x + self.drop_path(self.attn(self.norm1(x), H, W))
         x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
@@ -1070,12 +972,8 @@ class DWConv(nn.Module):
         super(DWConv, self).__init__()
         self.dwconv = nn.Conv2d(dim, dim, 3, 1, 1, bias=True, groups=dim)
 
-    def forward(self, x, H, W):
-        # torch._shape_as_tensor(x)
-        # torch._reshape_from_tensor(x, shape)
+    def forward(self, x, H: int, W: int):
         B, N, C = x.shape
-        H_W_shape = torch.IntTensor([H, W])
-
         x = x.transpose(1, 2).view(B, C, H, W)
         x = self.dwconv(x)
         x = x.flatten(2).transpose(1, 2)
@@ -1148,44 +1046,30 @@ class DecoderTransformer(nn.Module):
         # norm_layer = functools.partial(<class 'torch.nn.modules.normalization.LayerNorm'>, eps=1e-06)
         # depths = [3, 4, 6, 3]
         # sr_ratios = [8, 4, 2, 1]
-        self.apply(self._init_weights)
 
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=0.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
-
-    def forward(self, x):
+    def forward(self, x: List[torch.Tensor]) -> List[torch.Tensor]:
         # len(x), x[0].size(), x[1].size(), x[2].size(), x[3].size()
         # (4,
-        #  torch.Size([1, 64, 92, 160]),
-        #  torch.Size([1, 128, 46, 80]),
-        #  torch.Size([1, 320, 23, 40]),
-        #  torch.Size([1, 512, 12, 20]))
+        #  ([1, 64, 92, 160]),
+        #  ([1, 128, 46, 80]),
+        #  ([1, 320, 23, 40]),
+        #  ([1, 512, 12, 20]))
 
         x = x[3]
         B = x.shape[0]
         outs = []
 
         # stage 1
-        x, H, W = self.patch_embed1(x)
+        x, x_proj_out = self.patch_embed1(x)
+        _, _, H, W = x_proj_out.shape
+
         for i, blk in enumerate(self.block1):
             x = blk(x, H, W)
         x = self.norm1(x)
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         outs.append(x)
         # (Pdb) len(outs), outs[0].size()
-        # (1, torch.Size([1, 512, 6, 10]))
+        # (1, ([1, 512, 6, 10]))
         return outs
 
 
@@ -1307,39 +1191,39 @@ class convprojection(nn.Module):
         #   (active): Tanh()
         # )
 
-    def forward(self, x1, x2):
+    def forward(self, x1: List[torch.Tensor], x2: List[torch.Tensor]):
         # len(x1), x1[0].size(), x1[1].size(), x1[2].size(), x1[3].size()
-        # (4, torch.Size([1, 64, 92, 160]),
-        #     torch.Size([1, 128, 46, 80]),
-        #     torch.Size([1, 320, 23, 40]),
-        #     torch.Size([1, 512, 12, 20]))
-        # len(x2),x2[0].size() -- (1, torch.Size([1, 512, 6, 10]))
+        # (4, ([1, 64, 92, 160]),
+        #     ([1, 128, 46, 80]),
+        #     ([1, 320, 23, 40]),
+        #     ([1, 512, 12, 20]))
+        # len(x2),x2[0].size() -- (1, ([1, 512, 6, 10]))
 
         res32x = self.convd32x(x2[0])
 
         if x1[3].shape[3] != res32x.shape[3] and x1[3].shape[2] != res32x.shape[2]:
             p2d = (0, -1, 0, -1)
-            res32x = F.pad(res32x, p2d, "constant", 0)
+            res32x = F.pad(res32x, p2d, "constant", value=0.0)
 
         elif x1[3].shape[3] != res32x.shape[3] and x1[3].shape[2] == res32x.shape[2]:
             p2d = (0, -1, 0, 0)
-            res32x = F.pad(res32x, p2d, "constant", 0)
+            res32x = F.pad(res32x, p2d, "constant", value=0.0)
         elif x1[3].shape[3] == res32x.shape[3] and x1[3].shape[2] != res32x.shape[2]:
             p2d = (0, 0, 0, -1)
-            res32x = F.pad(res32x, p2d, "constant", 0)
+            res32x = F.pad(res32x, p2d, "constant", value=0.0)
 
         res16x = res32x + x1[3]
         res16x = self.convd16x(res16x)
 
         if x1[2].shape[3] != res16x.shape[3] and x1[2].shape[2] != res16x.shape[2]:
             p2d = (0, -1, 0, -1)
-            res16x = F.pad(res16x, p2d, "constant", 0)
+            res16x = F.pad(res16x, p2d, "constant", value=0.0)
         elif x1[2].shape[3] != res16x.shape[3] and x1[2].shape[2] == res16x.shape[2]:
             p2d = (0, -1, 0, 0)
-            res16x = F.pad(res16x, p2d, "constant", 0)
+            res16x = F.pad(res16x, p2d, "constant", value=0.00)
         elif x1[2].shape[3] == res16x.shape[3] and x1[2].shape[2] != res16x.shape[2]:
             p2d = (0, 0, 0, -1)
-            res16x = F.pad(res16x, p2d, "constant", 0)
+            res16x = F.pad(res16x, p2d, "constant", value=0.0)
 
         res8x = self.dense_4(res16x) + x1[2]
         res8x = self.convd8x(res8x)
@@ -1350,7 +1234,7 @@ class convprojection(nn.Module):
         x = res2x
         x = self.dense_1(x)
         x = self.convd1x(x)
-        # x.size() -- torch.Size([1, 8, 368, 640])
+        # x.size() -- ([1, 8, 368, 640])
 
         return x
 
@@ -1386,65 +1270,6 @@ class DropPath(nn.Module):
         return drop_path(x, self.drop_prob, self.training)
 
 
-def _no_grad_trunc_normal_(tensor, mean, std, a, b):
-    # Cut & paste from PyTorch official master until it's in a few official releases - RW
-    # Method based on https://people.sc.fsu.edu/~jburkardt/presentations/truncated_normal.pdf
-    def norm_cdf(x):
-        # Computes standard normal cumulative distribution function
-        return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
-
-    if (mean < a - 2 * std) or (mean > b + 2 * std):
-        warnings.warn(
-            "mean is more than 2 std from [a, b] in nn.init.trunc_normal_. "
-            "The distribution of values may be incorrect.",
-            stacklevel=2,
-        )
-
-    with torch.no_grad():
-        # Values are generated by using a truncated uniform distribution and
-        # then using the inverse CDF for the normal distribution.
-        # Get upper and lower cdf values
-        l = norm_cdf((a - mean) / std)
-        u = norm_cdf((b - mean) / std)
-
-        # Uniformly fill tensor with values from [l, u], then translate to
-        # [2l-1, 2u-1].
-        tensor.uniform_(2 * l - 1, 2 * u - 1)
-
-        # Use inverse cdf transform for normal distribution to get truncated
-        # standard normal
-        tensor.erfinv_()
-
-        # Transform to proper mean, std
-        tensor.mul_(std * math.sqrt(2.0))
-        tensor.add_(mean)
-
-        # Clamp to ensure it's in the proper range
-        tensor.clamp_(min=a, max=b)
-        return tensor
-
-
-def trunc_normal_(tensor, mean=0.0, std=1.0, a=-2.0, b=2.0):
-    # type: (Tensor, float, float, float, float) -> Tensor
-    r"""Fills the input Tensor with values drawn from a truncated
-    normal distribution. The values are effectively drawn from the
-    normal distribution :math:`\mathcal{N}(\text{mean}, \text{std}^2)`
-    with values outside :math:`[a, b]` redrawn until they are within
-    the bounds. The method used for generating the random values works
-    best when :math:`a \leq \text{mean} \leq b`.
-    Args:
-        tensor: an n-dimensional `torch.Tensor`
-        mean: the mean of the normal distribution
-        std: the standard deviation of the normal distribution
-        a: the minimum cutoff value
-        b: the maximum cutoff value
-    Examples:
-        >>> w = torch.empty(3, 5)
-        >>> nn.init.trunc_normal_(w)
-    """
-    return _no_grad_trunc_normal_(tensor, mean, std, a, b)
-
-
 if __name__ == "__main__":
-    model = CleanWeatherModel()
+    model = RemoveLightRainModel()
     print(model)
