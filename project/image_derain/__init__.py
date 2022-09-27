@@ -12,7 +12,6 @@
 __version__ = "1.0.0"
 
 import os
-import time
 from tqdm import tqdm
 import torch
 import torch.nn as nn
@@ -26,10 +25,6 @@ from . import heavy_rain
 from . import rain_class
 
 import pdb
-
-# LIGHT_RAIN_MEAN = (0.5, 0.5, 0.5)
-# LIGHT_RAIN_STD = (0.5, 0.5, 0.5)
-DERAIN_TIMES = 32
 
 
 class DerainModel(nn.Module):
@@ -114,28 +109,27 @@ def get_model():
     model = model.to(device)
     model.eval()
 
+    print(f"Running on {device} ...")
+    model = torch.jit.script(model)
+
     todos.data.mkdir("output")
     if not os.path.exists("output/image_derain.torch"):
-        model = torch.jit.script(model)
         model.save("output/image_derain.torch")
 
     return model, device
 
 
-def model_forward(model, device, input_tensor):
-    # normal_tensor only support CxHxW !!!
-    # input_tensor = input_tensor.squeeze(0)
-    # todos.data.normal_tensor(input_tensor, mean=LIGHT_RAIN_MEAN, std=LIGHT_RAIN_STD)
-    # input_tensor = input_tensor.unsqueeze(0)
-
+def model_forward(model, device, input_tensor, multi_times=32):
     # zeropad for model
     H, W = input_tensor.size(2), input_tensor.size(3)
-    if H % DERAIN_TIMES == 0 and W % DERAIN_TIMES == 0:
-        return todos.model.forward(model, device, input_tensor)
+    if H % multi_times != 0 or W % multi_times != 0:
+        input_tensor = todos.data.zeropad_tensor(input_tensor, times=multi_times)
 
-    # else
-    input_tensor = todos.data.zeropad_tensor(input_tensor, times=DERAIN_TIMES)
-    output_tensor = todos.model.forward(model, device, input_tensor)
+    torch.cuda.synchronize()
+    with torch.jit.optimized_execution(False):
+        output_tensor = todos.model.forward(model, device, input_tensor)
+    torch.cuda.synchronize()
+
     return output_tensor[:, :, 0:H, 0:W]
 
 
