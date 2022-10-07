@@ -8,7 +8,12 @@ import cv2
 
 import skimage
 import cv2
-from skimage.measure import compare_psnr, compare_ssim
+# from skimage.measure import compare_psnr, compare_ssim
+
+# scikit-image -- 0.18.1
+from skimage.metrics import structural_similarity as compare_ssim
+from skimage.metrics import peak_signal_noise_ratio as compare_psnr
+
 import pdb
 import os
 from PIL import Image
@@ -63,7 +68,8 @@ def to_ssim_skimage(pred_image, gt):
 
     pred_image_list_np = [pred_image_list[ind].permute(0, 2, 3, 1).data.cpu().numpy().squeeze() for ind in range(len(pred_image_list))]
     gt_list_np = [gt_list[ind].permute(0, 2, 3, 1).data.cpu().numpy().squeeze() for ind in range(len(pred_image_list))]
-    ssim_list = [measure.compare_ssim(pred_image_list_np[ind],  gt_list_np[ind], data_range=1, multichannel=True) for ind in range(len(pred_image_list))]
+    # ssim_list = [measure.compare_ssim(pred_image_list_np[ind],  gt_list_np[ind], data_range=1, multichannel=True) for ind in range(len(pred_image_list))]
+    ssim_list = [compare_ssim(pred_image_list_np[ind],  gt_list_np[ind], data_range=1, multichannel=True) for ind in range(len(pred_image_list))]
 
     return ssim_list
 
@@ -103,7 +109,8 @@ def validation_val(net, val_data_loader, device, exp_name, category, save_tag=Fa
     ssim_list = []
 
     for batch_id, val_data in enumerate(val_data_loader):
-
+        if batch_id % 10 == 0:
+            print(f"Process {batch_id + 1} ...")
         with torch.no_grad():
             input_im, gt, imgid, orig_im = val_data
             orig_im = orig_im.to(device)
