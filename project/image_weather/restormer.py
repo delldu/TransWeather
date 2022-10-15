@@ -206,7 +206,7 @@ class Upsample(nn.Module):
 
 ##########################################################################
 ##---------- Restormer -----------------------
-class RemoveHeavyRainModel(nn.Module):
+class RestormerModel(nn.Module):
     def __init__(
         self,
         inp_channels=3,
@@ -221,7 +221,7 @@ class RemoveHeavyRainModel(nn.Module):
         dual_pixel_task=False,  ## True for dual-pixel defocus deblurring only. Also set inp_channels=6
     ):
 
-        super(RemoveHeavyRainModel, self).__init__()
+        super(RestormerModel, self).__init__()
 
         self.patch_embed = OverlapPatchEmbed(inp_channels, dim)
 

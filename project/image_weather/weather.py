@@ -1,4 +1,4 @@
-"""Remove Light Rain Model."""  # coding=utf-8
+"""Remove Light Rain/Snow Model."""  # coding=utf-8
 #
 # /************************************************************************************
 # ***
@@ -65,9 +65,9 @@ class ResidualBlock(torch.nn.Module):
         return out
 
 
-class RemoveLightRainModel(nn.Module):
+class WeatherModel(nn.Module):
     def __init__(self):
-        super(RemoveLightRainModel, self).__init__()
+        super(WeatherModel, self).__init__()
         self.Tenc = Tenc()
         self.Tdec = Tdec()
         self.convtail = convprojection()
@@ -1271,5 +1271,5 @@ class DropPath(nn.Module):
 
 
 if __name__ == "__main__":
-    model = RemoveLightRainModel()
+    model = WeatherModel()
     print(model)

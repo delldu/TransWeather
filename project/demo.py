@@ -1,6 +1,4 @@
-import image_derain
+import image_weather
 
-# image_derain.image_client("TAI", "images/input/*.png", "output")
-# image_derain.image_server("TAI")
-
-image_derain.image_predict("images/*.png", "output")
+image_weather.image_derain("images/derain/*[0-1].png", "output/derain")
+image_weather.image_desnow("images/desnow/*.jpg", "output/desnow")

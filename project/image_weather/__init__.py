@@ -20,8 +20,8 @@ import torch.nn.functional as F
 import redos
 import todos
 
-from . import light_rain
-from . import heavy_rain
+from . import weather # light rain
+from . import restormer # for heavy rain
 from . import rain_class
 
 import pdb
@@ -69,7 +69,7 @@ def get_light_rain_model():
     cdir = os.path.dirname(__file__)
     checkpoint = model_path if cdir == "" else cdir + "/" + model_path
 
-    model = light_rain.RemoveLightRainModel()
+    model = weather.WeatherModel()
     if os.path.exists(checkpoint):
         todos.model.load(model, checkpoint)
 
@@ -79,18 +79,18 @@ def get_light_rain_model():
 def get_heavy_rain_model():
     """Create heavy rain model."""
 
-    model_path = "models/remove_heavy_rain.pth"
+    model_path = "models/image_restormer.pth"
     cdir = os.path.dirname(__file__)
     checkpoint = model_path if cdir == "" else cdir + "/" + model_path
 
-    model = heavy_rain.RemoveHeavyRainModel()
+    model = restormer.RestormerModel()
     if os.path.exists(checkpoint):
         todos.model.load(model, checkpoint, "params")
 
     return model
 
 
-def get_model():
+def get_derain_model():
     """Create model."""
 
     model_path = "models/image_derain.pth"
@@ -119,6 +119,31 @@ def get_model():
     return model, device
 
 
+def get_desnow_model():
+    """Create model."""
+
+    model_path = "models/image_desnow.pth"
+    cdir = os.path.dirname(__file__)
+    checkpoint = model_path if cdir == "" else cdir + "/" + model_path
+
+    device = todos.model.get_device()
+    model = weather.WeatherModel()
+    todos.model.load(model, checkpoint)
+
+    model = model.to(device)
+    model.eval()
+
+    print(f"Running on {device} ...")
+    model = torch.jit.script(model)
+
+    todos.data.mkdir("output")
+    if not os.path.exists("output/image_desnow.torch"):
+        model.save("output/image_desnow.torch")
+
+    return model, device
+
+
+
 def model_forward(model, device, input_tensor, multi_times=32):
     # zeropad for model
     H, W = input_tensor.size(2), input_tensor.size(3)
@@ -130,40 +155,12 @@ def model_forward(model, device, input_tensor, multi_times=32):
     return output_tensor[:, :, 0:H, 0:W]
 
 
-def image_client(name, input_files, output_dir):
-    redo = redos.Redos(name)
-    cmd = redos.image.Command()
-    image_filenames = todos.data.load_files(input_files)
-    for filename in image_filenames:
-        output_file = f"{output_dir}/{os.path.basename(filename)}"
-        context = cmd.derain(filename, output_file)
-        redo.set_queue_task(context)
-    print(f"Created {len(image_filenames)} tasks for {name}.")
-
-
-def image_server(name, HOST="localhost", port=6379):
-    # load model
-    model, device = get_model()
-
-    def do_service(input_file, output_file, targ):
-        print(f"  derain {input_file} ...")
-        try:
-            input_tensor = todos.data.load_tensor(input_file)
-            output_tensor = model_forward(model, device, input_tensor)
-            todos.data.save_tensor(output_tensor, output_file)
-            return True
-        except:
-            return False
-
-    return redos.image.service(name, "image_derain", do_service, HOST, port)
-
-
-def image_predict(input_files, output_dir):
+def image_derain(input_files, output_dir):
     # Create directory to store result
     todos.data.mkdir(output_dir)
 
     # load model
-    model, device = get_model()
+    model, device = get_derain_model()
 
     # load files
     image_filenames = todos.data.load_files(input_files)
@@ -181,61 +178,31 @@ def image_predict(input_files, output_dir):
         output_file = f"{output_dir}/{os.path.basename(filename)}"
 
         todos.data.save_tensor([orig_tensor, predict_tensor], output_file)
+    todos.model.reset_device()
 
 
-def video_service(input_file, output_file, targ):
-    # load video
-    video = redos.video.Reader(input_file)
-    if video.n_frames < 1:
-        print(f"Read video {input_file} error.")
-        return False
-
+def image_desnow(input_files, output_dir):
     # Create directory to store result
-    output_dir = output_file[0 : output_file.rfind(".")]
     todos.data.mkdir(output_dir)
 
     # load model
-    model, device = get_model()
+    model, device = get_desnow_model()
 
-    print(f"  derain {input_file}, save to {output_file} ...")
-    progress_bar = tqdm(total=video.n_frames)
+    # load files
+    image_filenames = todos.data.load_files(input_files)
 
-    def clean_video_frame(no, data):
-        # print(f"frame: {no} -- {data.shape}")
+    # start predict
+    progress_bar = tqdm(total=len(image_filenames))
+    for filename in image_filenames:
         progress_bar.update(1)
 
-        input_tensor = todos.data.frame_totensor(data)
+        # orig input
+        input_tensor = todos.data.load_tensor(filename)
+        # pytorch recommand clone.detach instead of torch.Tensor(input_tensor)
+        orig_tensor = input_tensor.clone().detach()
+        predict_tensor = model_forward(model, device, input_tensor)
+        output_file = f"{output_dir}/{os.path.basename(filename)}"
 
-        # convert tensor from 1x4xHxW to 1x3xHxW
-        input_tensor = input_tensor[:, 0:3, :, :]
-        output_tensor = model_forward(model, device, input_tensor)
+        todos.data.save_tensor([orig_tensor, predict_tensor], output_file)
+    todos.model.reset_device()
 
-        temp_output_file = "{}/{:06d}.png".format(output_dir, no)
-        todos.data.save_tensor(output_tensor, temp_output_file)
-
-    video.forward(callback=clean_video_frame)
-
-    redos.video.encode(output_dir, output_file)
-
-    # delete temp files
-    for i in range(video.n_frames):
-        temp_output_file = "{}/{:06d}.png".format(output_dir, i)
-        os.remove(temp_output_file)
-
-    return True
-
-
-def video_client(name, input_file, output_file):
-    cmd = redos.video.Command()
-    context = cmd.derain(input_file, output_file)
-    redo = redos.Redos(name)
-    redo.set_queue_task(context)
-    print(f"Created 1 video tasks for {name}.")
-
-
-def video_server(name, HOST="localhost", port=6379):
-    return redos.video.service(name, "video_weather", video_service, HOST, port)
-
-
-def video_predict(input_file, output_file):
-    return video_service(input_file, output_file, None)
