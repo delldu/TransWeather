@@ -13,15 +13,15 @@ __version__ = "1.0.0"
 
 import os
 from tqdm import tqdm
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import redos
 import todos
 
-from . import weather # light rain
-from . import restormer # for heavy rain
+from . import weather  # for light rain
+from . import restormer  # for heavy rain
 from . import rain_class
 
 import pdb
@@ -143,18 +143,6 @@ def get_desnow_model():
     return model, device
 
 
-
-def model_forward(model, device, input_tensor, multi_times=32):
-    # zeropad for model
-    H, W = input_tensor.size(2), input_tensor.size(3)
-    if H % multi_times != 0 or W % multi_times != 0:
-        input_tensor = todos.data.zeropad_tensor(input_tensor, times=multi_times)
-
-    output_tensor = todos.model.forward(model, device, input_tensor)
-
-    return output_tensor[:, :, 0:H, 0:W]
-
-
 def image_derain(input_files, output_dir):
     # Create directory to store result
     todos.data.mkdir(output_dir)
@@ -174,7 +162,7 @@ def image_derain(input_files, output_dir):
         input_tensor = todos.data.load_tensor(filename)
         # pytorch recommand clone.detach instead of torch.Tensor(input_tensor)
         orig_tensor = input_tensor.clone().detach()
-        predict_tensor = model_forward(model, device, input_tensor)
+        predict_tensor = todos.model.forward(model, device, input_tensor)
         output_file = f"{output_dir}/{os.path.basename(filename)}"
 
         todos.data.save_tensor([orig_tensor, predict_tensor], output_file)
@@ -200,9 +188,8 @@ def image_desnow(input_files, output_dir):
         input_tensor = todos.data.load_tensor(filename)
         # pytorch recommand clone.detach instead of torch.Tensor(input_tensor)
         orig_tensor = input_tensor.clone().detach()
-        predict_tensor = model_forward(model, device, input_tensor)
+        predict_tensor = todos.model.forward(model, device, input_tensor)
         output_file = f"{output_dir}/{os.path.basename(filename)}"
 
         todos.data.save_tensor([orig_tensor, predict_tensor], output_file)
     todos.model.reset_device()
-
