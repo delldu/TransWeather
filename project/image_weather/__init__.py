@@ -36,13 +36,14 @@ class DerainModel(nn.Module):
 
     def forward(self, x):
         cx = F.interpolate(x, size=(224, 224), mode="bilinear", align_corners=False)
-        c = self.rain_class(cx)
-        _, label = torch.max(c, dim=1)
-        c = label[0].item()
-        if c == 0:
-            x = self.remove_heavy_rain(x)
-        else:
-            x = self.remove_light_rain(x)
+        with torch.no_grad():
+            c = self.rain_class(cx)
+            _, label = torch.max(c, dim=1)
+            c = label[0].item()
+            if c == 0:
+                x = self.remove_heavy_rain(x)
+            else:
+                x = self.remove_light_rain(x)
         return x
 
 
@@ -59,6 +60,8 @@ def get_rain_class_model():
     if os.path.exists(checkpoint):
         todos.model.load(model, checkpoint)
 
+    model.eval()
+
     return model
 
 
@@ -72,6 +75,7 @@ def get_light_rain_model():
     model = weather.WeatherModel()
     if os.path.exists(checkpoint):
         todos.model.load(model, checkpoint)
+    model.eval()
 
     return model
 
@@ -86,6 +90,7 @@ def get_heavy_rain_model():
     model = restormer.RestormerModel()
     if os.path.exists(checkpoint):
         todos.model.load(model, checkpoint, "params")
+    model.eval()
 
     return model
 
