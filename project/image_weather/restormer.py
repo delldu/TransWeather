@@ -341,7 +341,7 @@ class RestormerModel(nn.Module):
 
         self.output = nn.Conv2d(int(dim * 2 ** 1), out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
 
-    def forward_x(self, inp_img):
+    def forward(self, inp_img):
 
         inp_enc_level1 = self.patch_embed(inp_img)
         out_enc_level1 = self.encoder_level1(inp_enc_level1)
@@ -373,29 +373,3 @@ class RestormerModel(nn.Module):
         out_dec_level1 = self.output(out_dec_level1) + inp_img
 
         return out_dec_level1.clamp(0.0, 1.0)
-
-    def forward(self, x):
-        # Need Resize ?
-        B, C, H, W = x.size()
-        if H > self.MAX_H or W > self.MAX_W:
-            s = min(self.MAX_H / H, self.MAX_W / W)
-            SH, SW = int(s * H), int(s * W)
-            resize_x = F.interpolate(x, size=(SH, SW), mode="bilinear", align_corners=False)
-        else:
-            resize_x = x
-
-        # Need Pad ?
-        PH, PW = resize_x.size(2), resize_x.size(3)
-        if PH % self.MAX_TIMES != 0 or PW % self.MAX_TIMES != 0:
-            r_pad = self.MAX_TIMES - (PW % self.MAX_TIMES)
-            b_pad = self.MAX_TIMES - (PH % self.MAX_TIMES)
-            resize_pad_x = F.pad(resize_x, (0, r_pad, 0, b_pad), mode="replicate")
-        else:
-            resize_pad_x = resize_x
-
-        y = self.forward_x(resize_pad_x)
-
-        y = y[:, :, 0:PH, 0:PW]  # Remove Pads
-        y = F.interpolate(y, size=(H, W), mode="bilinear", align_corners=False)  # Remove Resize
-
-        return y

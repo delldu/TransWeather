@@ -20,10 +20,10 @@ import image_weather
 from tqdm import tqdm
 
 if __name__ == "__main__":
-    model, device = image_weather.get_derain_model()
+    model, device = image_weather.get_desnow_model()
 
     N = 100
-    B, C, H, W = 1, 3, 1024, 1024 # 7G(1024x1024)
+    B, C, H, W = 1, 3, model.max_h, model.max_w # 7G(1024x1024)
 
     mean_time = 0
     progress_bar = tqdm(total=N)

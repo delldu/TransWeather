@@ -8,6 +8,7 @@
 # ***
 # ************************************************************************************/
 #
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -62,68 +63,6 @@ class ResidualBlock(torch.nn.Module):
         out = self.conv2(out) * 0.1
         out = torch.add(out, residual)
         return out
-
-
-class WeatherModel(nn.Module):
-    def __init__(self):
-        super(WeatherModel, self).__init__()
-        # Define max GPU/CPU memory -- 8G(1024x1024)
-        self.MAX_H = 1024
-        self.MAX_W = 1024
-        self.MAX_TIMES = 16
-
-        self.Tenc = Tenc()
-        self.Tdec = Tdec()
-        self.convtail = convprojection()
-        self.clean = ConvLayer(8, 3, kernel_size=3, stride=1, padding=1)
-        self.active = nn.Tanh()
-
-    def forward_x(self, x):
-        # x normalize
-        x = (x - 0.5) / 0.5
-
-        # x.size() -- ([1, 3, 368, 640])
-        x1 = self.Tenc(x)
-        # len(x1), x1[0].size(), x1[1].size(),x1[2].size(), x1[3].size()
-        # (4, ([1, 64, 92, 160]),
-        #     ([1, 128, 46, 80]),
-        #     ([1, 320, 23, 40]),
-        #     ([1, 512, 12, 20]))
-        x2 = self.Tdec(x1)
-        # len(x2), x2[0].size() -- (1, ([1, 512, 6, 10]))
-        x = self.convtail(x1, x2)
-        # x.size() -- ([1, 8, 368, 640])
-
-        clean = self.active(self.clean(x))
-        # self.clean(x).size() -- ([1, 3, 368, 640])
-
-        return clean.clamp(0.0, 1.0)
-
-    def forward(self, x):
-        # Need Resize ?
-        B, C, H, W = x.size()
-        if H > self.MAX_H or W > self.MAX_W:
-            s = min(self.MAX_H / H, self.MAX_W / W)
-            SH, SW = int(s * H), int(s * W)
-            resize_x = F.interpolate(x, size=(SH, SW), mode="bilinear", align_corners=False)
-        else:
-            resize_x = x
-
-        # Need Pad ?
-        PH, PW = resize_x.size(2), resize_x.size(3)
-        if PH % self.MAX_TIMES != 0 or PW % self.MAX_TIMES != 0:
-            r_pad = self.MAX_TIMES - (PW % self.MAX_TIMES)
-            b_pad = self.MAX_TIMES - (PH % self.MAX_TIMES)
-            resize_pad_x = F.pad(resize_x, (0, r_pad, 0, b_pad), mode="replicate")
-        else:
-            resize_pad_x = resize_x
-
-        y = self.forward_x(resize_pad_x)
-
-        y = y[:, :, 0:PH, 0:PW]  # Remove Pads
-        y = F.interpolate(y, size=(H, W), mode="bilinear", align_corners=False)  # Remove Resize
-
-        return y
 
 
 class EncoderTransformer(nn.Module):
@@ -1234,7 +1173,6 @@ class convprojection(nn.Module):
         if x1[3].shape[3] != res32x.shape[3] and x1[3].shape[2] != res32x.shape[2]:
             p2d = (0, -1, 0, -1)
             res32x = F.pad(res32x, p2d, "constant", value=0.0)
-
         elif x1[3].shape[3] != res32x.shape[3] and x1[3].shape[2] == res32x.shape[2]:
             p2d = (0, -1, 0, 0)
             res32x = F.pad(res32x, p2d, "constant", value=0.0)
@@ -1244,7 +1182,6 @@ class convprojection(nn.Module):
 
         res16x = res32x + x1[3]
         res16x = self.convd16x(res16x)
-
         if x1[2].shape[3] != res16x.shape[3] and x1[2].shape[2] != res16x.shape[2]:
             p2d = (0, -1, 0, -1)
             res16x = F.pad(res16x, p2d, "constant", value=0.0)
@@ -1300,6 +1237,41 @@ class DropPath(nn.Module):
         return drop_path(x, self.drop_prob, self.training)
 
 
-if __name__ == "__main__":
-    model = WeatherModel()
-    print(model)
+class WeatherModel(nn.Module):
+    def __init__(self):
+        super(WeatherModel, self).__init__()
+        # Define max GPU/CPU memory -- 8G(1024x1024)
+        self.MAX_H = 1024
+        self.MAX_W = 1024
+        self.MAX_TIMES = 16
+
+        self.Tenc = Tenc()
+        self.Tdec = Tdec()
+        self.convtail = convprojection()
+        self.clean = ConvLayer(8, 3, kernel_size=3, stride=1, padding=1)
+        self.active = nn.Tanh()
+
+    def load_weights(self, model_path="models/image_desnow.pth"):
+        cdir = os.path.dirname(__file__)
+        checkpoint = model_path if cdir == "" else cdir + "/" + model_path
+        self.load_state_dict(torch.load(checkpoint))
+
+    def forward(self, x):
+        # x normalize
+        x = (x - 0.5) / 0.5
+
+        # x.size() -- ([1, 3, 368, 640])
+        x1 = self.Tenc(x)
+        # len(x1), x1[0].size(), x1[1].size(),x1[2].size(), x1[3].size()
+        # (4, ([1, 64, 92, 160]),
+        #     ([1, 128, 46, 80]),
+        #     ([1, 320, 23, 40]),
+        #     ([1, 512, 12, 20]))
+        x2 = self.Tdec(x1)
+        # len(x2), x2[0].size() -- (1, ([1, 512, 6, 10]))
+        x = self.convtail(x1, x2)
+        # x.size() -- ([1, 8, 368, 640])
+
+        clean = self.active(self.clean(x))
+        # self.clean(x).size() -- ([1, 3, 368, 640])
+        return clean.clamp(0.0, 1.0)

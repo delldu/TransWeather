@@ -27,6 +27,20 @@ from . import rain_class
 import pdb
 
 
+def get_tvm_model():
+    """
+    TVM model base on torch.jit.trace
+    """
+    model = weather.WeatherModel()  # Snow
+    model.load_weights(model_path="models/image_desnow.pth")
+    device = todos.model.get_device()
+    model = model.to(device)
+    model.eval()
+    print(f"Running tvm model model on {device} ...")
+
+    return model, device
+
+
 class DerainModel(nn.Module):
     def __init__(self):
         super(DerainModel, self).__init__()
@@ -75,6 +89,10 @@ def get_light_rain_model():
     model = weather.WeatherModel()
     if os.path.exists(checkpoint):
         todos.model.load(model, checkpoint)
+    # else:
+    #   todos.model.load(model, "models/image_restormer.pth")
+    # model = todos.model.ResizePadModel(model)
+
     model.eval()
 
     return model
@@ -90,6 +108,8 @@ def get_heavy_rain_model():
     model = restormer.RestormerModel()
     if os.path.exists(checkpoint):
         todos.model.load(model, checkpoint, "params")
+    # model = todos.model.ResizePadModel(model)
+
     model.eval()
 
     return model
@@ -111,6 +131,9 @@ def get_derain_model():
     #     torch.save(model.state_dict(), checkpoint)
     todos.model.load(model, checkpoint)
 
+    model.remove_heavy_rain = todos.model.ResizePadModel(model.remove_heavy_rain)
+    model.remove_light_rain = todos.model.ResizePadModel(model.remove_light_rain)
+
     model = model.to(device)
     model.eval()
 
@@ -127,13 +150,10 @@ def get_derain_model():
 def get_desnow_model():
     """Create model."""
 
-    model_path = "models/image_desnow.pth"
-    cdir = os.path.dirname(__file__)
-    checkpoint = model_path if cdir == "" else cdir + "/" + model_path
-
     device = todos.model.get_device()
     model = weather.WeatherModel()
-    todos.model.load(model, checkpoint)
+    model.load_weights(model_path="models/image_desnow.pth")
+    model = todos.model.ResizePadModel(model)
 
     model = model.to(device)
     model.eval()
