@@ -1244,6 +1244,7 @@ class WeatherModel(nn.Module):
         self.MAX_H = 1024
         self.MAX_W = 1024
         self.MAX_TIMES = 16
+        # GPU: 10G, 360ms
 
         self.Tenc = Tenc()
         self.Tdec = Tdec()

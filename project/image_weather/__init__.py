@@ -48,6 +48,16 @@ class DerainModel(nn.Module):
         self.remove_heavy_rain = get_heavy_rain_model()
         self.remove_light_rain = get_light_rain_model()
 
+        # Prepare for smoke test
+        assert self.remove_heavy_rain.MAX_H == self.remove_light_rain.MAX_H, "havy/light rain model config should be same."
+        assert self.remove_heavy_rain.MAX_W == self.remove_light_rain.MAX_W, "havy/light rain model config should be same."
+        assert self.remove_heavy_rain.MAX_TIMES == self.remove_light_rain.MAX_TIMES, "havy/light rain model should must be same."
+
+        self.max_h = self.remove_heavy_rain.MAX_H
+        self.max_w = self.remove_heavy_rain.MAX_W
+        self.max_times = self.remove_heavy_rain.MAX_TIMES
+        self.scale = 1
+
     def forward(self, x):
         cx = F.interpolate(x, size=(224, 224), mode="bilinear", align_corners=False)
         with torch.no_grad():
